@@ -244,25 +244,25 @@ def draw_sphere(ax, title, vec, color):
     """Clean, bright Bloch sphere — no glow, just vivid crisp lines."""
     ax.clear()
 
-    # ── Sphere wireframe: single bright layer ──
+    # ── Sphere wireframe: brighter layer ──
     u = np.linspace(0, 2 * np.pi, 60)
     v = np.linspace(0, np.pi, 30)
     xs = np.outer(np.cos(u), np.sin(v))
     ys = np.outer(np.sin(u), np.sin(v))
     zs = np.outer(np.ones_like(u), np.cos(v))
-    ax.plot_wireframe(xs, ys, zs, color=color, alpha=0.20, linewidth=0.5)
+    ax.plot_wireframe(xs, ys, zs, color=color, alpha=0.55, linewidth=0.8)
 
-    # ── Equator ring (dimmed) ──
+    # ── Equator ring (bright) ──
     ring = np.linspace(0, 2 * np.pi, 200)
     ax.plot(np.cos(ring), np.sin(ring), np.zeros_like(ring),
-            color=color, alpha=0.40, linewidth=1.2)
+            color=color, alpha=0.80, linewidth=1.8)
 
-    # ── Meridian circles (XZ and YZ) — dim ──
+    # ── Meridian circles (XZ and YZ) — bright ──
     circ = np.linspace(0, 2 * np.pi, 200)
     ax.plot(np.cos(circ), np.zeros_like(circ), np.sin(circ),
-            color=color, alpha=0.18, linewidth=0.8)
+            color=color, alpha=0.60, linewidth=1.2)
     ax.plot(np.zeros_like(circ), np.cos(circ), np.sin(circ),
-            color=color, alpha=0.18, linewidth=0.8)
+            color=color, alpha=0.60, linewidth=1.2)
 
     # ── Axis lines (bright, single pass) ──
     ax.plot([-1.1, 1.1], [0, 0], [0, 0], color='#ff4d4d', linewidth=1.5, alpha=1.0)
@@ -277,16 +277,16 @@ def draw_sphere(ax, title, vec, color):
     ax.text( 0,     0,     1.22,  '|0⟩', color='#ffe600', fontsize=11, fontweight='bold')
     ax.text( 0,     0,    -1.38,  '|1⟩', color='#ffe600', fontsize=11, fontweight='bold')
 
-    # ── State vector: single solid bright arrow ──
+    # ── State vector: solid white arrow ──
     ax.quiver(0, 0, 0, vec[0], vec[1], vec[2],
-              color=color, linewidth=3.5,
+              color='#ffffff', linewidth=3.5,
               arrow_length_ratio=0.18, alpha=1.0, normalize=False)
 
     # ── Bright dot at tip ──
     tip = np.array([vec[0], vec[1], vec[2]])
     if np.linalg.norm(tip) > 1e-6:
         ax.scatter([tip[0]], [tip[1]], [tip[2]],
-                   color='#ffffff', s=60, zorder=10, alpha=1.0, edgecolors=color, linewidths=2)
+                   color='#ffffff', s=60, zorder=10, alpha=1.0, edgecolors='#ffffff', linewidths=2)
 
     # ── Clean axes styling (no tinted panes) ──
     ax.set_xlim([-1.4, 1.4])
@@ -414,7 +414,7 @@ sidebar, main = st.columns([1, 3], gap="large")
 # SIDEBAR
 # ═══════════════════════════════════════════════════
 with sidebar:
-    st.markdown("### 📊 Circuit Info")
+    st.markdown("### 📈 Q-Stats")
     st.metric("Gates Applied", len(st.session_state.gate_history))
     try:
         sv_now = Statevector.from_instruction(st.session_state.circuit)
@@ -430,15 +430,17 @@ with sidebar:
     st.markdown("### ⓘ About")
     st.markdown("""
 <small style='color:#64748b;line-height:1.6'>
-<b style='color:#818cf8'>Q-SPHERE</b> visualises a 2-qubit 
-quantum circuit in real time.<br><br>
-
-• Single-qubit gates: X Y Z H S S† T T†<br>
-• Rotation gates: Rₓ Rᵧ R_z<br>
-• Two-qubit gates: CNOT CZ SWAP<br>
+<b style='color:#818cf8'>Q-SPHERE</b><br>
+Visualizing basic quantum gate operations in Bloch sphere.<br>
+<br>
+Project by: Tharun J<br>
+<br>
+• Single-qubit gates: X,Y,Z,H,S,S†,T,T†<br>
+• Rotation gates: Rₓ,Rᵧ,R_z<br>
+• Two-qubit gates: CNOT,CZ,SWAP<br>
 • Animated Bloch sphere step-by-step<br>
 • Statevector + probability readout<br>
-• Text circuit diagram<br><br>
+<br><br>
 
 <i></i> 
 
