@@ -28,6 +28,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import io
 import base64
 import json
+import os
 from pathlib import Path
 from PIL import Image
 
@@ -758,8 +759,19 @@ def load_circuit(filepath: Path):
 # ─────────────────────────────────────────────────────────────────────────────
 # HERO BANNER
 # ─────────────────────────────────────────────────────────────────────────────
+logo_html = ""
+logo_path = "logo.png"
+if not os.path.exists(logo_path) and os.path.exists("logo.png.png"):
+    logo_path = "logo.png.png"
+
+if os.path.exists(logo_path):
+    with open(logo_path, "rb") as f:
+        b64_logo = base64.b64encode(f.read()).decode()
+    logo_html = f'<img src="data:image/png;base64,{b64_logo}" style="height: 110px; margin-right: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); flex-shrink: 0;"/>'
+
 st.markdown(f"""
 <div class="hero" style="display: flex; align-items: center;">
+  {logo_html}
   <div>
       <h1 style="margin-top: 0; margin-bottom: 5px;">Q-SPHERE (DUAL ENGINE)</h1>
       <p style="margin: 0;">Choose: Plotly (Interactive 3D) or Matplotlib (Classic) · Undo/Redo · Custom Angles · Save/Load</p>
@@ -1038,6 +1050,37 @@ with main:
                 for state, prob in probs.items():
                     lines.append(f"  |{state}⟩  ──  {prob:.6f}")
                 st.session_state.output = "\n".join(lines)
+                
+                # Render Probability States Plot
+                st.markdown('<div class="section-title">📊 Probability Distribution</div>', unsafe_allow_html=True)
+                states = [f"|{s}⟩" for s in probs.keys()]
+                probabilities = list(probs.values())
+                
+                fig = go.Figure(data=[
+                    go.Bar(
+                        x=states, 
+                        y=probabilities,
+                        marker_color='#818cf8',
+                        text=[f"{p:.3f}" for p in probabilities],
+                        textposition='auto',
+                        marker_line_color='#6366f1',
+                        marker_line_width=1.5,
+                        opacity=0.9
+                    )
+                ])
+                fig.update_layout(
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    font=dict(color='#e0e7ff', family='Inter'),
+                    xaxis_title="Quantum State",
+                    yaxis_title="Probability",
+                    yaxis=dict(range=[0, 1.05], gridcolor='rgba(129,140,248,0.2)'),
+                    xaxis=dict(gridcolor='rgba(129,140,248,0.2)'),
+                    margin=dict(l=20, r=20, t=30, b=20),
+                    height=400
+                )
+                st.plotly_chart(fig, use_container_width=True)
+                
             except Exception as e:
                 st.session_state.output = f"Error computing statevector: {e}"
 
@@ -1150,59 +1193,28 @@ with main:
                         b0, b1 = bloch_vectors(sv, num_q)
                         title = f"Applying {label}" if i < len(gate_labels) else "Final State"
 
-                        if use_plotly:
-                            # PLOTLY ANIMATION
-                            if num_q == 1:
-                                fig = draw_sphere_plotly(f"Qubit · Step {i}", b0, '#bf40ff')
-                                fig.update_layout(
-                                    title=dict(text=f"{title}<br>Step {i}", 
-                                             font=dict(size=18, color='#ffffff')),
-                                    height=500
-                                )
-                                img_bytes = fig.to_image(format="png", width=700, height=500)
-                                frames_b64.append(base64.b64encode(img_bytes).decode())
-                            else:
-                                # Two spheres - combine images
-                                fig1 = draw_sphere_plotly(f"Qubit 0 · Step {i}", b0, '#bf40ff')
-                                fig2 = draw_sphere_plotly(f"Qubit 1 · Step {i}", b1, '#00e5ff')
-                                
-                                img1_bytes = fig1.to_image(format="png", width=600, height=500)
-                                img2_bytes = fig2.to_image(format="png", width=600, height=500)
-                                
-                                img1 = Image.open(io.BytesIO(img1_bytes))
-                                img2 = Image.open(io.BytesIO(img2_bytes))
-                                
-                                combined = Image.new('RGB', (1200, 500), color='#000000')
-                                combined.paste(img1, (0, 0))
-                                combined.paste(img2, (600, 0))
-                                
-                                buf = io.BytesIO()
-                                combined.save(buf, format='PNG')
-                                buf.seek(0)
-                                frames_b64.append(base64.b64encode(buf.read()).decode())
+                        # MATPLOTLIB ANIMATION (Faster rendering & avoids Kaleido errors)
+                        if num_q == 1:
+                            fig = plt.figure(figsize=(7, 7), facecolor='#000000')
+                            ax = fig.add_subplot(111, projection='3d')
+                            draw_sphere_matplotlib(ax, f"Qubit · Step {i}", b0, '#bf40ff')
                         else:
-                            # MATPLOTLIB ANIMATION (Faster rendering)
-                            if num_q == 1:
-                                fig = plt.figure(figsize=(7, 7), facecolor='#000000')
-                                ax = fig.add_subplot(111, projection='3d')
-                                draw_sphere_matplotlib(ax, f"Qubit · Step {i}", b0, '#bf40ff')
-                            else:
-                                fig = plt.figure(figsize=(14, 7), facecolor='#000000')
-                                ax1 = fig.add_subplot(121, projection='3d')
-                                ax2 = fig.add_subplot(122, projection='3d')
-                                draw_sphere_matplotlib(ax1, f"Qubit 0 · Step {i}", b0, '#bf40ff')
-                                draw_sphere_matplotlib(ax2, f"Qubit 1 · Step {i}", b1, '#00e5ff')
-                            
-                            fig.suptitle(title, fontsize=15,
-                                         fontweight='bold', color='#ffffff', y=0.95)
-                            fig.patch.set_facecolor('#000000')
-                            plt.tight_layout(pad=2.0)
+                            fig = plt.figure(figsize=(14, 7), facecolor='#000000')
+                            ax1 = fig.add_subplot(121, projection='3d')
+                            ax2 = fig.add_subplot(122, projection='3d')
+                            draw_sphere_matplotlib(ax1, f"Qubit 0 · Step {i}", b0, '#bf40ff')
+                            draw_sphere_matplotlib(ax2, f"Qubit 1 · Step {i}", b1, '#00e5ff')
+                        
+                        fig.suptitle(title, fontsize=15,
+                                     fontweight='bold', color='#ffffff', y=0.95)
+                        fig.patch.set_facecolor('#000000')
+                        plt.tight_layout(pad=2.0)
 
-                            buf = io.BytesIO()
-                            fig.savefig(buf, format='png', dpi=110, facecolor='#000000')
-                            plt.close(fig)
-                            buf.seek(0)
-                            frames_b64.append(base64.b64encode(buf.read()).decode())
+                        buf = io.BytesIO()
+                        fig.savefig(buf, format='png', dpi=110, facecolor='#000000')
+                        plt.close(fig)
+                        buf.seek(0)
+                        frames_b64.append(base64.b64encode(buf.read()).decode())
                         
                         progress.progress((i + 1) / n_frames,
                                           text=f"Rendered {i+1}/{n_frames}")
@@ -1210,8 +1222,8 @@ with main:
                     progress.empty()
 
                     # JavaScript slideshow
-                    frames_js = str(frames_b64).replace("'", '"')
-                    pause_js = str(pause_indices)
+                    frames_js = json.dumps(frames_b64)
+                    pause_js = json.dumps(pause_indices)
                     playback_speed = 120 if mode == "1-Qubit Explorer" else 900
                     
                     anim_html = f"""
@@ -1248,6 +1260,7 @@ with main:
 (function(){{
   const frames = {frames_js};
   const pauseIndices = {pause_js};
+  const playbackSpeed = {playback_speed};
   let cur = 0, timer = null;
   let isPlaying = false;
   const img = document.getElementById('qframe');
@@ -1260,19 +1273,17 @@ with main:
     lbl.textContent = 'Step ' + cur + ' / ' + (frames.length - 1);
   }}
 
-  function nextFrameLogic() {{
-    if (cur >= frames.length - 1) {{
-      isPlaying = false;
-      playBtn.textContent = '▶ Play';
-      return;
-    }}
-    show(cur + 1);
-    
-    if (pauseIndices.includes(cur) && isPlaying) {{
-      timer = setTimeout(nextFrameLogic, 2000);
-    }} else if (isPlaying) {{
-      timer = setTimeout(nextFrameLogic, {playback_speed});
-    }}
+  function scheduleNext() {{
+    let delay = pauseIndices.includes(cur) ? 2000 : playbackSpeed;
+    timer = setTimeout(function() {{
+      if (cur >= frames.length - 1) {{
+        isPlaying = false;
+        playBtn.textContent = '▶ Play';
+      }} else {{
+        show(cur + 1);
+        scheduleNext();
+      }}
+    }}, delay);
   }}
 
   window.changeFrame = function(d) {{ 
@@ -1286,15 +1297,17 @@ with main:
       clearTimeout(timer); timer = null; playBtn.textContent = '▶ Play';
     }} else {{
       isPlaying = true;
-      if (cur >= frames.length - 1) cur = 0;
+      if (cur >= frames.length - 1) {{
+          show(0);
+      }}
       playBtn.textContent = '⏸ Pause';
-      nextFrameLogic();
+      scheduleNext();
     }}
   }};
 }})();
 </script>
 """
-                    st.components.v1.html(anim_html, height=600)
+                    st.components.v1.html(anim_html, height=650)
 
             except Exception as e:
                 st.error(f"Animation error: {e}")
