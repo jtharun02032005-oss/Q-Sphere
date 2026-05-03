@@ -1,24 +1,16 @@
 """
-QuantumPy – 2-Qubit Quantum Visualiser (Streamlit Web App) - IMPROVED VERSION
-===============================================================================
-Run with:  streamlit run app_improved.py
+QuantumLab - Advanced Quantum Circuit Research Platform (Enhanced)
+========================================================
+Professional-grade quantum computing research tool with advanced analysis,
+state tomography, noise modeling, custom gate synthesis, and STATE ANIMATION.
 
-IMPROVEMENTS:
-- Fixed SWAP gate labeling inconsistency
-- Added error handling for all quantum operations
-- Implemented undo/redo functionality
-- Added caching for expensive operations
-- Custom angle input for rotation gates
-- Circuit save/load capability
-- Animation frame limit to prevent memory issues
-- Better performance with optimized rendering
-- Loading indicators for long operations
-- Input validation
+Run with: streamlit run quantum_research_platform_enhanced.py
 """
 
 import warnings
 import streamlit as st
 import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import matplotlib
@@ -27,1282 +19,1294 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import io
 import base64
+import os
 import json
 from pathlib import Path
-from PIL import Image
+from scipy.linalg import expm, logm
+from scipy.optimize import minimize
+import time
 
-from qiskit import QuantumCircuit
-from qiskit.quantum_info import Statevector, partial_trace, DensityMatrix
+from qiskit import QuantumCircuit, transpile
+from qiskit.quantum_info import Statevector, DensityMatrix, partial_trace, Operator, state_fidelity, entanglement_of_formation
+from qiskit.visualization import circuit_drawer
+from qiskit_aer import AerSimulator
+from qiskit_aer.noise import NoiseModel, depolarizing_error, thermal_relaxation_error
 
 warnings.filterwarnings("ignore")
 
-# ─────────────────────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════
 # CONFIGURATION
-# ─────────────────────────────────────────────────────────────────────────────
-MAX_GATES = 50  # Prevent memory issues
-MAX_ANIMATION_FRAMES = 500  # Limit animation frames
-CIRCUIT_SAVE_DIR = Path("saved_circuits")
-CIRCUIT_SAVE_DIR.mkdir(exist_ok=True)
+# ═══════════════════════════════════════════════════════════════════════════
+MAX_QUBITS = 10
+SAVE_DIR = Path("quantum_research_data")
+SAVE_DIR.mkdir(exist_ok=True)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# CUSTOM CSS
-# ─────────────────────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════
+# PROFESSIONAL RESEARCH STYLING
+# ═══════════════════════════════════════════════════════════════════════════
 st.markdown("""
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&family=JetBrains+Mono:wght@400;600&family=Orbitron:wght@700;900&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
-  html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
+  * { font-family: 'IBM Plex Sans', -apple-system, sans-serif; }
+  
+  .stApp { background: #ffffff; color: #1a1a2e; }
 
-  /* ── BRIGHTER background ── */
-  .stApp { background: linear-gradient(135deg, #1a1f3c 0%, #2d3561 50%, #1e2645 100%); }
-
-  /* ── hero banner - BRIGHTER ── */
-  .hero {
-    background: linear-gradient(135deg, #3d4371 0%, #2d3561 60%, #384270 100%);
-    border: 2px solid rgba(129,140,248,0.5);
-    border-radius: 18px;
-    padding: 36px 40px 28px;
-    margin-bottom: 28px;
-    position: relative;
-    overflow: hidden;
-    box-shadow: 0 8px 32px rgba(129,140,248,0.2);
-  }
-  .hero::before {
-    content: '';
-    position: absolute;
-    top: -60px; right: -60px;
-    width: 260px; height: 260px;
-    background: radial-gradient(circle, rgba(129,140,248,0.3) 0%, transparent 70%);
-    border-radius: 50%;
-  }
-  .hero h1 {
-    font-family: 'Copperplate Gothic Light', 'Orbitron', sans-serif;
-    font-size: 2.6rem; font-weight: 900;
-    color: rgb(255, 255, 100);
-    margin: 0 0 8px;
-    text-shadow: 0 2px 10px rgba(255,255,100,0.3);
-  }
-  .hero p { color: #e0e7ff; font-size: 1.05rem; margin: 0; font-weight: 500; }
-
-  /* ── section cards - BRIGHTER ── */
-  .section-card {
-    background: linear-gradient(135deg, #2d3561 0%, #3d4371 100%);
-    border: 2px solid rgba(129,140,248,0.4);
-    border-radius: 14px;
-    padding: 20px 22px;
-    margin-bottom: 18px;
-    box-shadow: 0 4px 16px rgba(129,140,248,0.15);
-  }
-  .section-title {
-    font-size: 0.85rem; font-weight: 700; letter-spacing: 0.12em;
-    text-transform: uppercase; color: #c7d2fe; margin-bottom: 14px;
-  }
-
-  /* ── gate buttons - DARKER TEXT ── */
-  div[data-testid="stButton"] > button {
-    background: linear-gradient(135deg, #4338ca, #5b49d8) !important;
-    color: #ffffff !important;
-    border: 2px solid rgba(165,180,252,0.6) !important;
-    border-radius: 10px !important;
-    font-family: 'JetBrains Mono', monospace !important;
-    font-size: 0.82rem !important; font-weight: 700 !important;
-    padding: 8px 14px !important;
-    transition: all 0.2s ease !important;
-    width: 100% !important;
-    box-shadow: 0 2px 8px rgba(67,56,202,0.3) !important;
-  }
-  div[data-testid="stButton"] > button:hover {
-    background: linear-gradient(135deg, #6366f1, #8b5cf6) !important;
-    border-color: #c7d2fe !important;
-    transform: translateY(-2px) !important;
-    box-shadow: 0 6px 20px rgba(99,102,241,0.5) !important;
-  }
-  div[data-testid="stButton"] > button:active {
-    transform: translateY(0) !important;
-  }
-
-  /* ── primary action buttons - DARKER TEXT ── */
-  .primary-btn div[data-testid="stButton"] > button {
-    background: linear-gradient(135deg, #f97316, #fb923c) !important;
-    border-color: #fdba74 !important;
-    color: white !important;
-    font-size: 0.9rem !important;
-    padding: 10px 18px !important;
-    box-shadow: 0 4px 16px rgba(249,115,22,0.4) !important;
-    font-weight: 700 !important;
-  }
-  .primary-btn div[data-testid="stButton"] > button:hover {
-    background: linear-gradient(135deg, #fb923c, #fbbf24) !important;
-    box-shadow: 0 6px 24px rgba(249,115,22,0.6) !important;
-  }
-
-  /* ── gate history pill - DARKER TEXT ── */
-  .gate-history {
-    background: linear-gradient(135deg, #2d3561, #3d4371);
-    border: 2px solid rgba(129,140,248,0.4);
-    border-radius: 10px;
-    padding: 12px 18px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.88rem;
-    color: #f0f4ff;
-    min-height: 46px;
-    word-wrap: break-word;
-    line-height: 1.8;
-    font-weight: 600;
-  }
-  .gate-pill {
-    display: inline-block;
-    background: linear-gradient(135deg, rgba(129,140,248,0.4), rgba(165,180,252,0.4));
-    border: 2px solid rgba(165,180,252,0.6);
+  /* Professional header */
+  .research-header {
+    background: linear-gradient(135deg, #1f6feb 0%, #0969da 100%);
+    padding: 2rem 2.5rem;
     border-radius: 6px;
-    padding: 2px 10px;
-    margin: 2px 3px;
-    color: #ffffff;
-    font-weight: 700;
-    box-shadow: 0 2px 6px rgba(129,140,248,0.3);
+    margin-bottom: 1.5rem;
+    border: 1px solid #d0d7de;
   }
-
-  /* ── output box - DARKER TEXT ── */
-  .output-box {
-    background: linear-gradient(135deg, #2d3561, #384270);
-    border: 2px solid rgba(129,140,248,0.4);
-    border-radius: 12px;
-    padding: 16px 20px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.82rem;
-    color: #d1fae5;
-    white-space: pre-wrap;
-    max-height: 340px;
-    overflow-y: auto;
+  
+  .research-header h1 {
+    font-size: 2rem;
     font-weight: 600;
+    color: white;
+    margin: 0 0 0.5rem 0;
+    letter-spacing: -0.02em;
+  }
+  
+  .research-header p {
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 1rem;
+    margin: 0;
+    font-weight: 400;
   }
 
-  /* ── sidebar - DARKER TEXT ── */
-  [data-testid="stSidebar"] {
-    background: linear-gradient(135deg, #2d3561, #3d4371) !important;
-    border-right: 2px solid rgba(129,140,248,0.3) !important;
+  /* Data panels */
+  .data-panel {
+    background: #f6f8fa;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
   }
-  [data-testid="stSidebar"] * { color: #e0e7ff !important; font-weight: 500 !important; }
-  [data-testid="stSidebar"] label { font-weight: 600 !important; }
+  
+  .panel-header {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #1a1a2e;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.75rem;
+  }
 
-  /* ── select / slider - DARKER TEXT ── */
-  .stSelectbox > div > div, .stSlider { color: #ffffff; font-weight: 600; }
-  .stSelectbox label { color: #e0e7ff !important; font-weight: 600 !important; }
+  /* Metrics */
+  [data-testid="metric-container"] {
+    background: #f6f8fa;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    padding: 1rem;
+  }
+  
+  [data-testid="metric-container"] label {
+    color: #57606a !important;
+    font-weight: 500 !important;
+    font-size: 0.75rem !important;
+  }
+  
+  [data-testid="metric-container"] [data-testid="stMetricValue"] {
+    color: #1a1a2e !important;
+    font-weight: 600 !important;
+    font-family: 'IBM Plex Mono', monospace !important;
+  }
 
-  /* ── tabs - DARKER TEXT ── */
+  /* Buttons */
+  div[data-testid="stButton"] > button {
+    background: #1f6feb !important;
+    color: white !important;
+    border: 1px solid #0969da !important;
+    border-radius: 6px !important;
+    font-weight: 500 !important;
+    padding: 0.5rem 1rem !important;
+    font-size: 0.875rem !important;
+    font-family: 'IBM Plex Sans', sans-serif !important;
+  }
+  
+  div[data-testid="stButton"] > button:hover {
+    background: #0969da !important;
+    border-color: #58a6ff !important;
+  }
+  
+  .secondary-btn div[data-testid="stButton"] > button {
+    background: transparent !important;
+    border: 1px solid #d0d7de !important;
+    color: #1a1a2e !important;
+  }
+  
+  .secondary-btn div[data-testid="stButton"] > button:hover {
+    background: #f6f8fa !important;
+    border-color: #8b949e !important;
+  }
+  
+  .danger-btn div[data-testid="stButton"] > button {
+    background: #da3633 !important;
+    border: 1px solid #f85149 !important;
+  }
+
+  /* Code blocks */
+  .code-block {
+    background: #f6f8fa;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    padding: 1rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.875rem;
+    color: #1a1a2e;
+    overflow-x: auto;
+  }
+
+  /* Tabs */
+  .stTabs [data-baseweb="tab-list"] {
+    gap: 4px;
+    background: #ffffff;
+  }
+  
   .stTabs [data-baseweb="tab"] {
     background: transparent !important;
-    color: #94a3b8 !important;
-    font-weight: 700 !important;
+    color: #57606a !important;
+    font-weight: 500 !important;
+    border-radius: 6px 6px 0 0 !important;
+    padding: 0.5rem 1rem !important;
     border-bottom: 2px solid transparent !important;
   }
+  
   .stTabs [aria-selected="true"] {
-    color: #e0e7ff !important;
-    border-bottom: 3px solid #a5b4fc !important;
-    font-weight: 800 !important;
+    color: #1a1a2e !important;
+    border-bottom: 2px solid #1f6feb !important;
   }
 
-  /* ── horizontal rule ── */
-  hr { border-color: rgba(129,140,248,0.3); }
+  /* Sidebar */
+  [data-testid="stSidebar"] {
+    background: #f6f8fa !important;
+    border-right: 1px solid #d0d7de !important;
+  }
 
-  /* ── metric - DARKER TEXT ── */
-  [data-testid="metric-container"] {
-    background: linear-gradient(135deg, rgba(129,140,248,0.15), rgba(165,180,252,0.1));
-    border: 2px solid rgba(129,140,248,0.3);
-    border-radius: 10px; padding: 12px;
-    box-shadow: 0 2px 8px rgba(129,140,248,0.2);
-  }
-  [data-testid="metric-container"] label { color: #c7d2fe !important; font-weight: 700 !important; }
-  [data-testid="metric-container"] [data-testid="stMetricValue"] { color: #ffffff !important; font-weight: 700 !important; }
-  
-  /* ── warning/error messages - DARKER TEXT ── */
-  .stAlert { border-radius: 10px; font-weight: 600; }
-  
-  /* ── text inputs - DARKER TEXT ── */
-  .stTextInput > div > div > input {
-    background: linear-gradient(135deg, #2d3561, #384270) !important;
-    border: 2px solid rgba(129,140,248,0.4) !important;
-    color: #ffffff !important;
-    font-weight: 600 !important;
-  }
-  .stTextInput label { color: #e0e7ff !important; font-weight: 600 !important; }
-  
-  /* ── info boxes - DARKER TEXT ── */
+  /* Info boxes */
   .stInfo {
-    background: linear-gradient(135deg, rgba(59,130,246,0.15), rgba(99,102,241,0.15)) !important;
-    border-left: 4px solid #60a5fa !important;
-    color: #e0e7ff !important;
-    font-weight: 600 !important;
+    background: rgba(56, 139, 253, 0.1) !important;
+    border: 1px solid #1f6feb !important;
+    color: #0550ae !important;
   }
   
-  /* ── success boxes - DARKER TEXT ── */
   .stSuccess {
-    background: linear-gradient(135deg, rgba(34,197,94,0.15), rgba(74,222,128,0.15)) !important;
-    border-left: 4px solid #4ade80 !important;
-    color: #d1fae5 !important;
-    font-weight: 600 !important;
+    background: rgba(31, 111, 235, 0.1) !important;
+    border: 1px solid #1f6feb !important;
+    color: #0969da !important;
   }
   
-  /* ── error boxes - DARKER TEXT ── */
+  .stWarning {
+    background: rgba(187, 128, 9, 0.1) !important;
+    border: 1px solid #9e6a03 !important;
+    color: #7a4706 !important;
+  }
+  
   .stError {
-    color: #fecaca !important;
-    font-weight: 600 !important;
+    background: rgba(248, 81, 73, 0.1) !important;
+    border: 1px solid #da3633 !important;
+    color: #a40e26 !important;
+  }
+
+  /* Tables */
+  .dataframe {
+    background: #ffffff;
+    color: #1a1a2e;
+    border: 1px solid #d0d7de;
   }
   
-  /* ── general text - DARKER ── */
-  p, span, div { color: #e0e7ff; }
-  
-  /* ── radio buttons - DARKER TEXT ── */
-  .stRadio label { color: #e0e7ff !important; font-weight: 600 !important; }
-  .stRadio > div { color: #ffffff !important; font-weight: 600 !important; }
-  
-  /* ── markdown text - DARKER ── */
-  .stMarkdown { color: #e0e7ff; }
-  .stMarkdown strong, .stMarkdown b { color: #ffffff; font-weight: 700; }
-  
-  /* ── headings - DARKER ── */
-  h1, h2, h3, h4, h5, h6 { color: #ffffff !important; font-weight: 700 !important; }
+  .dataframe th {
+    background: #f6f8fa !important;
+    color: #1a1a2e !important;
+    font-weight: 600 !important;
+  }
+
+  /* Expander */
+  .streamlit-expanderHeader {
+    background: #f6f8fa;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    color: #1a1a2e !important;
+    font-weight: 500;
+  }
+
+  /* Text inputs */
+  .stTextInput > div > div > input,
+  .stNumberInput > div > div > input,
+  .stSelectbox > div > div {
+    background: #ffffff !important;
+    border: 1px solid #d0d7de !important;
+    color: #1a1a2e !important;
+    border-radius: 6px !important;
+  }
+
+  /* Sliders */
+  .stSlider > div > div > div {
+    background: #f6f8fa;
+  }
+
+  /* General text overrides */
+  .stMarkdown, .stMarkdown p, .stMarkdown li, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4, .stMarkdown h5, .stMarkdown h6 {
+    color: #1a1a2e !important;
+  }
+
+  [data-testid="stSidebar"] .stMarkdown, [data-testid="stSidebar"] .stMarkdown p,
+  [data-testid="stSidebar"] .stMarkdown h1, [data-testid="stSidebar"] .stMarkdown h2,
+  [data-testid="stSidebar"] .stMarkdown h3, [data-testid="stSidebar"] label {
+    color: #1a1a2e !important;
+  }
+
+  [data-testid="stSidebar"] [data-testid="stMetricValue"] {
+    color: #1a1a2e !important;
+  }
+
+  [data-testid="stSidebar"] [data-testid="metric-container"] label {
+    color: #57606a !important;
+  }
 </style>
 """, unsafe_allow_html=True)
 
-# ─────────────────────────────────────────────────────────────────────────────
+
+# ═══════════════════════════════════════════════════════════════════════════
 # PAGE CONFIG
-# ─────────────────────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════
 st.set_page_config(
-    page_title="QuantumPy – Visualiser (Improved)",
+    page_title="QuantumLab - Research Platform",
     page_icon="⚛️",
     layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# ─────────────────────────────────────────────────────────────────────────────
-# HELPER FUNCTIONS
-# ─────────────────────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════
+# ADVANCED QUANTUM UTILITIES
+# ═══════════════════════════════════════════════════════════════════════════
 
-def validate_angle(angle: float) -> bool:
-    """Validate rotation angle is within reasonable bounds."""
-    return -4 * np.pi <= angle <= 4 * np.pi
-
-def safe_gate_operation(operation, error_prefix="Gate operation"):
-    """Wrapper for safe gate operations with error handling."""
-    try:
-        operation()
-        return True, None
-    except Exception as e:
-        error_msg = f"{error_prefix} failed: {str(e)}"
-        return False, error_msg
-
-@st.cache_data(show_spinner=False)
-def compute_statevector(circuit_data):
-    """Cached statevector computation."""
-    try:
-        qc = QuantumCircuit.from_qasm_str(circuit_data)
-        return Statevector.from_instruction(qc), None
-    except Exception as e:
-        return None, str(e)
-
-def density_to_bloch(rho):
-    """Convert density matrix to Bloch vector."""
-    x = 2 * np.real(rho[0, 1])
-    y = -2 * np.imag(rho[0, 1])
-    z = np.real(rho[0, 0] - rho[1, 1])
-    return np.array([x, y, z], dtype=float)
-
-def bloch_vectors(sv, num_qubits=2):
-    """Calculate Bloch vectors for qubits."""
-    if num_qubits == 1:
-        rho = DensityMatrix(sv).data
-        return density_to_bloch(rho), None
-    else:
-        rho0 = partial_trace(sv, [1]).data
-        rho1 = partial_trace(sv, [0]).data
-        return density_to_bloch(rho0), density_to_bloch(rho1)
-
-def draw_sphere_matplotlib(ax, title, vec, color):
-    """Draw Bloch sphere using Matplotlib (classic static version)."""
-    ax.clear()
-
-    # Sphere wireframe
-    u = np.linspace(0, 2 * np.pi, 60)
-    v = np.linspace(0, np.pi, 30)
-    xs = np.outer(np.cos(u), np.sin(v))
-    ys = np.outer(np.sin(u), np.sin(v))
-    zs = np.outer(np.ones_like(u), np.cos(v))
-    ax.plot_wireframe(xs, ys, zs, color=color, alpha=0.55, linewidth=0.8)
-
-    # Equator ring
-    ring = np.linspace(0, 2 * np.pi, 200)
-    ax.plot(np.cos(ring), np.sin(ring), np.zeros_like(ring),
-            color=color, alpha=0.80, linewidth=1.8)
-
-    # Meridian circles
-    circ = np.linspace(0, 2 * np.pi, 200)
-    ax.plot(np.cos(circ), np.zeros_like(circ), np.sin(circ),
-            color=color, alpha=0.60, linewidth=1.2)
-    ax.plot(np.zeros_like(circ), np.cos(circ), np.sin(circ),
-            color=color, alpha=0.60, linewidth=1.2)
-
-    # Axis lines
-    ax.plot([-1.1, 1.1], [0, 0], [0, 0], color='#ff4d4d', linewidth=1.5, alpha=1.0)
-    ax.plot([0, 0], [-1.1, 1.1], [0, 0], color='#39ff14', linewidth=1.5, alpha=1.0)
-    ax.plot([0, 0], [0, 0], [-1.1, 1.1], color='#ffe600', linewidth=2.0, alpha=1.0)
-
-    # Labels
-    ax.text( 1.22,  0,     0,     '+X', color='#ff4d4d', fontsize=9,  fontweight='bold')
-    ax.text(-1.32,  0,     0,     '−X', color='#ff4d4d', fontsize=8)
-    ax.text( 0,     1.22,  0,     '+Y', color='#39ff14', fontsize=9,  fontweight='bold')
-    ax.text( 0,    -1.32,  0,     '−Y', color='#39ff14', fontsize=8)
-    ax.text( 0,     0,     1.22,  '|0⟩', color='#ffe600', fontsize=11, fontweight='bold')
-    ax.text( 0,     0,    -1.38,  '|1⟩', color='#ffe600', fontsize=11, fontweight='bold')
-
-    # State vector arrow
-    ax.quiver(0, 0, 0, vec[0], vec[1], vec[2],
-              color='#ffffff', linewidth=3.5,
-              arrow_length_ratio=0.18, alpha=1.0, normalize=False)
-
-    # Tip dot
-    tip = np.array([vec[0], vec[1], vec[2]])
-    if np.linalg.norm(tip) > 1e-6:
-        ax.scatter([tip[0]], [tip[1]], [tip[2]],
-                   color='#ffffff', s=60, zorder=10, alpha=1.0, 
-                   edgecolors='#ffffff', linewidths=2)
-
-    # Axes styling
-    ax.set_xlim([-1.4, 1.4])
-    ax.set_ylim([-1.4, 1.4])
-    ax.set_zlim([-1.4, 1.4])
-    ax.set_box_aspect([1, 1, 1])
-    ax.set_facecolor('#0a0a14')
-    ax.tick_params(colors='#0a0a14', labelsize=0, length=0)
-    ax.set_title(title, fontsize=13, fontweight='bold', color='#f8fafc', pad=12)
-    for pane in [ax.xaxis.pane, ax.yaxis.pane, ax.zaxis.pane]:
-        pane.fill = False
-        pane.set_edgecolor('#2a2a3a')
-
-def draw_sphere_plotly(title, vec, color='#bf40ff'):
-    """Draw interactive Bloch sphere using Plotly."""
+class QuantumStateAnalyzer:
+    """Advanced quantum state analysis tools."""
     
-    # Create sphere wireframe
+    @staticmethod
+    def compute_entropy(density_matrix):
+        """Compute von Neumann entropy."""
+        eigenvalues = np.linalg.eigvalsh(density_matrix)
+        eigenvalues = eigenvalues[eigenvalues > 1e-10]  # Remove numerical zeros
+        return -np.sum(eigenvalues * np.log2(eigenvalues))
+    
+    @staticmethod
+    def compute_purity(density_matrix):
+        """Compute purity Tr(ρ²)."""
+        return np.real(np.trace(density_matrix @ density_matrix))
+    
+    @staticmethod
+    def compute_concurrence(statevector):
+        """Compute concurrence for 2-qubit systems."""
+        if statevector.num_qubits != 2:
+            return None
+        
+        # Get density matrix
+        rho = DensityMatrix(statevector).data
+        
+        # Pauli Y matrix
+        sigma_y = np.array([[0, -1j], [1j, 0]])
+        
+        # Compute spin-flipped state
+        sigma_y_total = np.kron(sigma_y, sigma_y)
+        rho_tilde = sigma_y_total @ np.conj(rho) @ sigma_y_total
+        
+        # Compute R matrix
+        R = rho @ rho_tilde
+        
+        # Get eigenvalues
+        eigenvalues = np.linalg.eigvalsh(R)
+        eigenvalues = np.sqrt(np.maximum(eigenvalues, 0))  # Ensure non-negative
+        eigenvalues = np.sort(eigenvalues)[::-1]  # Sort descending
+        
+        # Concurrence
+        C = max(0, eigenvalues[0] - eigenvalues[1] - eigenvalues[2] - eigenvalues[3])
+        return C
+    
+    @staticmethod
+    def compute_negativity(statevector, subsystem):
+        """Compute negativity as entanglement measure."""
+        if statevector.num_qubits < 2:
+            return 0
+        
+        # Get density matrix
+        rho = DensityMatrix(statevector).data
+        
+        # Partial transpose
+        dim = 2 ** statevector.num_qubits
+        subsystem_dim = 2
+        
+        # Reshape for partial transpose
+        rho_reshaped = rho.reshape(subsystem_dim, dim // subsystem_dim, 
+                                     subsystem_dim, dim // subsystem_dim)
+        
+        # Partial transpose over subsystem
+        rho_pt = np.transpose(rho_reshaped, (2, 1, 0, 3)).reshape(dim, dim)
+        
+        # Compute eigenvalues
+        eigenvalues = np.linalg.eigvalsh(rho_pt)
+        
+        # Negativity is sum of absolute values of negative eigenvalues
+        negativity = np.sum(np.abs(eigenvalues[eigenvalues < 0]))
+        
+        return negativity
+    
+    @staticmethod
+    def density_matrix_to_bloch(rho):
+        """Convert density matrix to Bloch vector."""
+        x = 2 * np.real(rho[0, 1])
+        y = -2 * np.imag(rho[0, 1])
+        z = np.real(rho[0, 0] - rho[1, 1])
+        return np.array([x, y, z], dtype=float)
+
+class CustomGateBuilder:
+    """Build custom quantum gates."""
+    
+    @staticmethod
+    def rotation_gate(axis, angle):
+        """Create rotation gate around arbitrary axis."""
+        axis = np.array(axis)
+        axis = axis / np.linalg.norm(axis)  # Normalize
+        
+        # Pauli matrices
+        sigma_x = np.array([[0, 1], [1, 0]])
+        sigma_y = np.array([[0, -1j], [1j, 0]])
+        sigma_z = np.array([[1, 0], [0, -1]])
+        
+        # σ·n
+        sigma_n = axis[0] * sigma_x + axis[1] * sigma_y + axis[2] * sigma_z
+        
+        # R(n,θ) = exp(-iθσ·n/2)
+        return expm(-1j * angle * sigma_n / 2)
+    
+    @staticmethod
+    def controlled_unitary(unitary):
+        """Create controlled version of arbitrary unitary."""
+        n = unitary.shape[0]
+        cu = np.eye(2 * n, dtype=complex)
+        cu[n:, n:] = unitary
+        return cu
+
+class NoiseModeling:
+    """Quantum noise models for realistic simulations."""
+    
+    @staticmethod
+    def create_noise_model(gate_error=0.001, measurement_error=0.01, 
+                          t1=50e-6, t2=70e-6):
+        """Create a realistic noise model."""
+        noise_model = NoiseModel()
+        
+        # Depolarizing error on single-qubit gates
+        error_1q = depolarizing_error(gate_error, 1)
+        noise_model.add_all_qubit_quantum_error(error_1q, ['u1', 'u2', 'u3', 'rx', 'ry', 'rz'])
+        
+        # Depolarizing error on two-qubit gates
+        error_2q = depolarizing_error(gate_error * 10, 2)
+        noise_model.add_all_qubit_quantum_error(error_2q, ['cx', 'cz', 'swap'])
+        
+        # Thermal relaxation (T1, T2)
+        gate_time = 50e-9  # 50 ns
+        thermal_error = thermal_relaxation_error(t1, t2, gate_time)
+        noise_model.add_all_qubit_quantum_error(thermal_error, ['u1', 'u2', 'u3'])
+        
+        return noise_model
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SESSION STATE
+# ═══════════════════════════════════════════════════════════════════════════
+
+def init_session_state():
+    """Initialize session state variables."""
+    if "num_qubits" not in st.session_state:
+        st.session_state.num_qubits = 2
+    if "circuit" not in st.session_state:
+        st.session_state.circuit = QuantumCircuit(st.session_state.num_qubits)
+    if "gate_history" not in st.session_state:
+        st.session_state.gate_history = []
+    if "analysis_cache" not in st.session_state:
+        st.session_state.analysis_cache = {}
+    if "experiment_log" not in st.session_state:
+        st.session_state.experiment_log = []
+    if "state_history" not in st.session_state:
+        st.session_state.state_history = []
+    if "record_states" not in st.session_state:
+        st.session_state.record_states = False
+
+init_session_state()
+
+# ═══════════════════════════════════════════════════════════════════════════
+# GATE OPERATIONS
+# ═══════════════════════════════════════════════════════════════════════════
+
+def record_state_snapshot():
+    """Record current quantum state for animation."""
+    if st.session_state.record_states and st.session_state.gate_history:
+        try:
+            sv = Statevector.from_instruction(st.session_state.circuit)
+            dm = DensityMatrix(sv)
+            
+            snapshot = {
+                'step': len(st.session_state.state_history),
+                'gate': st.session_state.gate_history[-1] if st.session_state.gate_history else "Initial",
+                'statevector': sv.data.copy(),
+                'density_matrix': dm.data.copy(),
+                'probabilities': sv.probabilities_dict()
+            }
+            
+            # For small systems, store Bloch vectors
+            if st.session_state.num_qubits <= 3:
+                analyzer = QuantumStateAnalyzer()
+                bloch_vecs = []
+                for i in range(st.session_state.num_qubits):
+                    if st.session_state.num_qubits == 1:
+                        rho_i = dm.data
+                    else:
+                        trace_qubits = [j for j in range(st.session_state.num_qubits) if j != i]
+                        rho_i = partial_trace(sv, trace_qubits).data
+                    bloch_vecs.append(analyzer.density_matrix_to_bloch(rho_i))
+                snapshot['bloch_vectors'] = bloch_vecs
+            
+            st.session_state.state_history.append(snapshot)
+        except:
+            pass
+
+def apply_gate(gate_type, params):
+    """Apply quantum gate with parameters."""
+    try:
+        if gate_type == 'H':
+            st.session_state.circuit.h(params['qubit'])
+            label = f"H q{params['qubit']}"
+        elif gate_type == 'X':
+            st.session_state.circuit.x(params['qubit'])
+            label = f"X q{params['qubit']}"
+        elif gate_type == 'Y':
+            st.session_state.circuit.y(params['qubit'])
+            label = f"Y q{params['qubit']}"
+        elif gate_type == 'Z':
+            st.session_state.circuit.z(params['qubit'])
+            label = f"Z q{params['qubit']}"
+        elif gate_type == 'S':
+            st.session_state.circuit.s(params['qubit'])
+            label = f"S q{params['qubit']}"
+        elif gate_type == 'T':
+            st.session_state.circuit.t(params['qubit'])
+            label = f"T q{params['qubit']}"
+        elif gate_type == 'RX':
+            st.session_state.circuit.rx(params['angle'], params['qubit'])
+            label = f"Rx({params['angle']:.3f}) q{params['qubit']}"
+        elif gate_type == 'RY':
+            st.session_state.circuit.ry(params['angle'], params['qubit'])
+            label = f"Ry({params['angle']:.3f}) q{params['qubit']}"
+        elif gate_type == 'RZ':
+            st.session_state.circuit.rz(params['angle'], params['qubit'])
+            label = f"Rz({params['angle']:.3f}) q{params['qubit']}"
+        elif gate_type == 'CNOT':
+            st.session_state.circuit.cx(params['control'], params['target'])
+            label = f"CNOT q{params['control']}→q{params['target']}"
+        elif gate_type == 'CZ':
+            st.session_state.circuit.cz(params['control'], params['target'])
+            label = f"CZ q{params['control']}→q{params['target']}"
+        elif gate_type == 'SWAP':
+            st.session_state.circuit.swap(params['control'], params['target'])
+            label = f"SWAP q{params['control']}↔q{params['target']}"
+        elif gate_type == 'Toffoli':
+            st.session_state.circuit.ccx(params['control1'], params['control2'], params['target'])
+            label = f"Toffoli q{params['control1']},q{params['control2']}→q{params['target']}"
+        elif gate_type == 'BARRIER':
+            st.session_state.circuit.barrier()
+            label = "BARRIER"
+        elif gate_type == 'CUSTOM':
+            # Custom unitary gate
+            unitary_matrix = params['unitary']
+            st.session_state.circuit.unitary(unitary_matrix, params['qubits'], label=params.get('label', 'U'))
+            label = f"{params.get('label', 'U')} q{params['qubits']}"
+        
+        st.session_state.gate_history.append(label)
+        st.session_state.analysis_cache = {}  # Invalidate cache
+        
+        # Record state if recording is enabled
+        record_state_snapshot()
+        
+        return True, label
+    except Exception as e:
+        return False, str(e)
+
+# ═══════════════════════════════════════════════════════════════════════════
+# VISUALIZATION FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════════
+
+def draw_bloch_sphere(title, vec, color='#1f6feb'):
+    """Draw Bloch sphere with research-grade styling."""
     u = np.linspace(0, 2 * np.pi, 30)
     v = np.linspace(0, np.pi, 20)
     x_sphere = np.outer(np.cos(u), np.sin(v))
     y_sphere = np.outer(np.sin(u), np.sin(v))
     z_sphere = np.outer(np.ones_like(u), np.cos(v))
     
-    # Create figure
     fig = go.Figure()
     
-    # Add sphere wireframe
+    # Sphere surface
     fig.add_trace(go.Surface(
         x=x_sphere, y=y_sphere, z=z_sphere,
         colorscale=[[0, color], [1, color]],
         showscale=False,
-        opacity=0.2,
+        opacity=0.1,
         hoverinfo='skip'
     ))
     
-    # Add equator circle
-    theta = np.linspace(0, 2 * np.pi, 100)
-    fig.add_trace(go.Scatter3d(
-        x=np.cos(theta), y=np.sin(theta), z=np.zeros_like(theta),
-        mode='lines',
-        line=dict(color=color, width=4),
-        hoverinfo='skip',
-        showlegend=False
-    ))
-    
-    # Add meridian circles (XZ and YZ planes)
-    circle = np.linspace(0, 2 * np.pi, 100)
-    # XZ plane
-    fig.add_trace(go.Scatter3d(
-        x=np.cos(circle), y=np.zeros_like(circle), z=np.sin(circle),
-        mode='lines',
-        line=dict(color=color, width=3),
-        hoverinfo='skip',
-        showlegend=False
-    ))
-    # YZ plane
-    fig.add_trace(go.Scatter3d(
-        x=np.zeros_like(circle), y=np.cos(circle), z=np.sin(circle),
-        mode='lines',
-        line=dict(color=color, width=3),
-        hoverinfo='skip',
-        showlegend=False
-    ))
-    
-    # Add axis lines
+    # Axes
     axis_length = 1.2
-    # X-axis (red)
     fig.add_trace(go.Scatter3d(
         x=[-axis_length, axis_length], y=[0, 0], z=[0, 0],
-        mode='lines',
-        line=dict(color='#ff4d4d', width=4),
-        hoverinfo='skip',
-        showlegend=False
+        mode='lines', line=dict(color='#f85149', width=3),
+        hoverinfo='skip', showlegend=False
     ))
-    # Y-axis (green)
     fig.add_trace(go.Scatter3d(
         x=[0, 0], y=[-axis_length, axis_length], z=[0, 0],
-        mode='lines',
-        line=dict(color='#39ff14', width=4),
-        hoverinfo='skip',
-        showlegend=False
+        mode='lines', line=dict(color='#3fb950', width=3),
+        hoverinfo='skip', showlegend=False
     ))
-    # Z-axis (yellow)
     fig.add_trace(go.Scatter3d(
         x=[0, 0], y=[0, 0], z=[-axis_length, axis_length],
-        mode='lines',
-        line=dict(color='#ffe600', width=5),
-        hoverinfo='skip',
-        showlegend=False
+        mode='lines', line=dict(color='#58a6ff', width=4),
+        hoverinfo='skip', showlegend=False
     ))
     
-    # Add axis labels
-    label_distance = 1.35
-    annotations = [
-        dict(x=label_distance, y=0, z=0, text='+X', showarrow=False, 
-             font=dict(color='#ff4d4d', size=14)),
-        dict(x=-label_distance, y=0, z=0, text='−X', showarrow=False, 
-             font=dict(color='#ff4d4d', size=12)),
-        dict(x=0, y=label_distance, z=0, text='+Y', showarrow=False, 
-             font=dict(color='#39ff14', size=14)),
-        dict(x=0, y=-label_distance, z=0, text='−Y', showarrow=False, 
-             font=dict(color='#39ff14', size=12)),
-        dict(x=0, y=0, z=label_distance, text='|0⟩', showarrow=False, 
-             font=dict(color='#ffe600', size=16)),
-        dict(x=0, y=0, z=-label_distance, text='|1⟩', showarrow=False, 
-             font=dict(color='#ffe600', size=16)),
-    ]
-    
-    # Add state vector arrow (cone for arrow)
+    # State vector
     if np.linalg.norm(vec) > 1e-6:
-        # Arrow line
         fig.add_trace(go.Scatter3d(
             x=[0, vec[0]], y=[0, vec[1]], z=[0, vec[2]],
-            mode='lines',
-            line=dict(color='#ffffff', width=8),
+            mode='lines', line=dict(color=color, width=8),
             hoverinfo='text',
-            hovertext=f'State Vector<br>x: {vec[0]:.3f}<br>y: {vec[1]:.3f}<br>z: {vec[2]:.3f}',
+            hovertext=f'State<br>x:{vec[0]:.3f}<br>y:{vec[1]:.3f}<br>z:{vec[2]:.3f}',
             showlegend=False
         ))
         
-        # Arrow head (cone)
         fig.add_trace(go.Cone(
             x=[vec[0]], y=[vec[1]], z=[vec[2]],
             u=[vec[0]*0.3], v=[vec[1]*0.3], w=[vec[2]*0.3],
-            colorscale=[[0, '#ffffff'], [1, '#ffffff']],
-            showscale=False,
-            sizemode='absolute',
-            sizeref=0.3,
+            colorscale=[[0, color], [1, color]],
+            showscale=False, sizemode='absolute', sizeref=0.3,
             hoverinfo='skip'
         ))
-        
-        # Tip dot
-        fig.add_trace(go.Scatter3d(
-            x=[vec[0]], y=[vec[1]], z=[vec[2]],
-            mode='markers',
-            marker=dict(size=8, color='#ffffff', line=dict(color='#ffffff', width=2)),
-            hoverinfo='skip',
-            showlegend=False
-        ))
     
-    # Layout
     fig.update_layout(
-        title=dict(text=title, font=dict(size=16, color='#f8fafc', family='Inter')),
+        title=dict(text=title, font=dict(size=14, color='#1a1a2e')),
         scene=dict(
             xaxis=dict(visible=False, range=[-1.5, 1.5]),
             yaxis=dict(visible=False, range=[-1.5, 1.5]),
             zaxis=dict(visible=False, range=[-1.5, 1.5]),
-            bgcolor='#0a0a14',
-            camera=dict(
-                eye=dict(x=1.5, y=1.5, z=1.3)
-            ),
-            aspectmode='cube',
-            annotations=annotations
+            bgcolor='#ffffff',
+            camera=dict(eye=dict(x=1.5, y=1.5, z=1.3)),
+            aspectmode='cube'
         ),
-        paper_bgcolor='#000000',
-        plot_bgcolor='#000000',
+        paper_bgcolor='#ffffff',
         margin=dict(l=0, r=0, t=40, b=0),
-        height=600
+        height=500
     )
     
     return fig
 
-# ─────────────────────────────────────────────────────────────────────────────
-# SESSION STATE INITIALIZATION
-# ─────────────────────────────────────────────────────────────────────────────
-st.sidebar.markdown('<div style="color: #818cf8; font-weight: bold; font-size: 1.2rem; margin-bottom: 10px;">⚙️ Mode Selection</div>', unsafe_allow_html=True)
-mode = st.sidebar.radio("System Size", ["1-Qubit Explorer", "2-Qubit Explorer"])
-
-st.sidebar.markdown("---")
-st.sidebar.markdown('<div style="color: #818cf8; font-weight: bold; font-size: 1.1rem; margin-bottom: 10px;">🎨 Visualization Engine</div>', unsafe_allow_html=True)
-viz_mode = st.sidebar.radio(
-    "Choose rendering engine:",
-    ["Plotly (Interactive 3D)", "Matplotlib (Classic)"],
-    help="Plotly: Interactive, rotatable 3D spheres\nMatplotlib: Classic static view"
-)
-use_plotly = viz_mode == "Plotly (Interactive 3D)"
-
-if use_plotly:
-    st.sidebar.info("🖱️ Click & drag to rotate\n📊 Hover for coordinates\n🔍 Scroll to zoom")
-else:
-    st.sidebar.info("📸 Classic static rendering\n⚡ Faster for animations")
-
-if "mode" not in st.session_state:
-    st.session_state.mode = mode
-
-# Reset circuit if mode changes
-if mode != st.session_state.mode:
-    st.session_state.mode = mode
-    st.session_state.circuit = QuantumCircuit(1) if mode == "1-Qubit Explorer" else QuantumCircuit(2)
-    st.session_state.gate_history = []
-    st.session_state.output = ""
-    st.session_state.undo_stack = []  # NEW: Undo functionality
-
-if "circuit" not in st.session_state:
-    st.session_state.circuit = QuantumCircuit(1) if mode == "1-Qubit Explorer" else QuantumCircuit(2)
-if "gate_history" not in st.session_state:
-    st.session_state.gate_history = []
-if "output" not in st.session_state:
-    st.session_state.output = ""
-if "undo_stack" not in st.session_state:
-    st.session_state.undo_stack = []
-if "error_message" not in st.session_state:
-    st.session_state.error_message = None
-if "viz_mode" not in st.session_state:
-    st.session_state.viz_mode = use_plotly
-
-# ─────────────────────────────────────────────────────────────────────────────
-# GATE APPLICATION WITH ERROR HANDLING & UNDO
-# ─────────────────────────────────────────────────────────────────────────────
-def push_gate(label: str, fn):
-    """Apply gate with error handling and undo support."""
-    # Check gate limit
-    if len(st.session_state.gate_history) >= MAX_GATES:
-        st.session_state.error_message = f"Maximum gate limit ({MAX_GATES}) reached. Clear circuit to continue."
-        return False
-    
-    # Save state for undo
-    circuit_backup = st.session_state.circuit.copy()
-    history_backup = st.session_state.gate_history.copy()
-    
-    # Try to apply gate
-    success, error = safe_gate_operation(
-        lambda: fn(st.session_state.circuit),
-        f"Applying {label}"
+def plot_density_matrix(density_matrix, title="Density Matrix"):
+    """Visualize density matrix."""
+    fig = make_subplots(
+        rows=1, cols=2,
+        subplot_titles=('Real Part', 'Imaginary Part'),
+        specs=[[{'type': 'heatmap'}, {'type': 'heatmap'}]]
     )
     
-    if success:
-        st.session_state.gate_history.append(label)
-        st.session_state.undo_stack.append({
-            'circuit': circuit_backup,
-            'history': history_backup
-        })
-        st.session_state.error_message = None
-        return True
-    else:
-        st.session_state.error_message = error
-        return False
-
-def undo_last_gate():
-    """Undo the last gate operation."""
-    if st.session_state.undo_stack:
-        last_state = st.session_state.undo_stack.pop()
-        st.session_state.circuit = last_state['circuit']
-        st.session_state.gate_history = last_state['history']
-        st.session_state.error_message = None
-        return True
-    return False
-
-# ─────────────────────────────────────────────────────────────────────────────
-# GATE DEFINITIONS - FIXED SWAP LABELING
-# ─────────────────────────────────────────────────────────────────────────────
-_GATE_LABEL_TO_OP = {
-    'X': lambda c, q: c.x(q),
-    'Y': lambda c, q: c.y(q),
-    'Z': lambda c, q: c.z(q),
-    'H': lambda c, q: c.h(q),
-    'S': lambda c, q: c.s(q),
-    'SD': lambda c, q: c.sdg(q),
-    'T': lambda c, q: c.t(q),
-    'TD': lambda c, q: c.tdg(q),
-    'CNOT': lambda c, _: c.cx(0, 1),
-    'CZ': lambda c, _: c.cz(0, 1),
-    'SWAP': lambda c, _: c.swap(0, 1),  # FIXED: Will use "SWAP" label without qubit
-}
-
-# ─────────────────────────────────────────────────────────────────────────────
-# BUILD STEP STATES - IMPROVED PARSING
-# ─────────────────────────────────────────────────────────────────────────────
-def build_step_states(circuit=None):
-    """Build animation states with improved parsing."""
-    if circuit is None:
-        circuit = st.session_state.circuit
-
-    # 1-Qubit mode: ultra-smooth fractional unitary interpolation
-    if "mode" in st.session_state and st.session_state.mode == "1-Qubit Explorer":
-        states = []
-        labels = []
-        pause_indices = [0]
-        current_sv = Statevector.from_int(0, 2)
-        states.append(current_sv)
-        
-        frames_per_gate = 15
-        for inst, qargs, cargs in circuit.data:
-            name = inst.name.upper()
-            try:
-                for k in range(1, frames_per_gate + 1):
-                    fractional_inst = inst.power(k / frames_per_gate)
-                    temp_qc = QuantumCircuit(1)
-                    temp_qc.append(fractional_inst, qargs, cargs)
-                    interp_sv = current_sv.evolve(temp_qc)
-                    states.append(interp_sv)
-                    labels.append(name)
-                temp_full = QuantumCircuit(1)
-                temp_full.append(inst, qargs, cargs)
-                current_sv = current_sv.evolve(temp_full)
-                pause_indices.append(len(states) - 1)
-            except Exception as e:
-                # Fallback if power is not supported
-                st.warning(f"Fractional interpolation failed for {name}: {e}. Using step-wise animation.")
-                temp_full = QuantumCircuit(1)
-                temp_full.append(inst, qargs, cargs)
-                current_sv = current_sv.evolve(temp_full)
-                states.append(current_sv)
-                labels.append(name)
-                pause_indices.append(len(states) - 1)
-        return states, labels, pause_indices
-
-    # 2-Qubit mode: improved parsing
-    temp = QuantumCircuit(2)
-    states = [Statevector.from_instruction(temp)]
-    labels = []
-    pause_indices = [0]
+    # Real part
+    fig.add_trace(
+        go.Heatmap(
+            z=np.real(density_matrix),
+            colorscale='RdBu',
+            zmid=0,
+            showscale=True,
+            colorbar=dict(x=0.45)
+        ),
+        row=1, col=1
+    )
     
-    for label in st.session_state.gate_history:
-        try:
-            parts = label.split()
-            gate_name = parts[0]
-            
-            # FIXED: Two-qubit gates (CNOT, CZ, SWAP) don't need qubit parameter
-            if gate_name in ['CNOT', 'CZ', 'SWAP']:
-                _GATE_LABEL_TO_OP[gate_name](temp, 0)  # qubit param ignored
-            elif gate_name in _GATE_LABEL_TO_OP:
-                # Single-qubit gates need qubit index
-                qubit = int(parts[1][-1]) if len(parts) > 1 else 0
-                _GATE_LABEL_TO_OP[gate_name](temp, qubit)
-            elif gate_name.startswith("RX"):
-                qubit = int(parts[1][-1]) if len(parts) > 1 else 0
-                angle_str = label.split("(")[1].split("π")[0]
-                temp.rx(float(angle_str) * np.pi, qubit)
-            elif gate_name.startswith("RY"):
-                qubit = int(parts[1][-1]) if len(parts) > 1 else 0
-                angle_str = label.split("(")[1].split("π")[0]
-                temp.ry(float(angle_str) * np.pi, qubit)
-            elif gate_name.startswith("RZ"):
-                qubit = int(parts[1][-1]) if len(parts) > 1 else 0
-                angle_str = label.split("(")[1].split("π")[0]
-                temp.rz(float(angle_str) * np.pi, qubit)
-
-            states.append(Statevector.from_instruction(temp))
-            labels.append(gate_name)
-            pause_indices.append(len(states) - 1)
-            
-        except Exception as e:
-            st.error(f"Failed to parse gate '{label}': {e}")
-            continue
+    # Imaginary part
+    fig.add_trace(
+        go.Heatmap(
+            z=np.imag(density_matrix),
+            colorscale='RdBu',
+            zmid=0,
+            showscale=True,
+            colorbar=dict(x=1.05)
+        ),
+        row=1, col=2
+    )
     
-    return states, labels, pause_indices
+    fig.update_layout(
+        title=title,
+        paper_bgcolor='#ffffff',
+        plot_bgcolor='#f6f8fa',
+        font=dict(color='#1a1a2e'),
+        height=400
+    )
+    
+    return fig
 
-# ─────────────────────────────────────────────────────────────────────────────
-# CIRCUIT SAVE/LOAD
-# ─────────────────────────────────────────────────────────────────────────────
-def save_circuit(name: str):
-    """Save circuit to file."""
-    try:
-        # Use qasm2 module for modern Qiskit versions
-        from qiskit import qasm2
-        circuit_data = {
-            'mode': st.session_state.mode,
-            'gate_history': st.session_state.gate_history,
-            'qasm': qasm2.dumps(st.session_state.circuit)
-        }
-        filepath = CIRCUIT_SAVE_DIR / f"{name}.json"
-        with open(filepath, 'w') as f:
-            json.dump(circuit_data, f, indent=2)
-        return True, f"Circuit saved successfully!"
-    except Exception as e:
-        return False, f"Save failed: {str(e)}"
+# ═══════════════════════════════════════════════════════════════════════════
+# MAIN INTERFACE
+# ═══════════════════════════════════════════════════════════════════════════
 
-def load_circuit(filepath: Path):
-    """Load circuit from file."""
-    try:
-        from qiskit import qasm2
-        with open(filepath, 'r') as f:
-            circuit_data = json.load(f)
-        
-        # Restore mode
-        loaded_mode = circuit_data['mode']
-        if loaded_mode != st.session_state.mode:
-            st.session_state.mode = loaded_mode
-        
-        # Restore circuit using qasm2
-        st.session_state.circuit = qasm2.loads(circuit_data['qasm'])
-        st.session_state.gate_history = circuit_data['gate_history']
-        st.session_state.undo_stack = []
-        st.session_state.error_message = None
-        
-        return True, "Circuit loaded successfully"
-    except Exception as e:
-        return False, f"Load failed: {str(e)}"
-
-# ─────────────────────────────────────────────────────────────────────────────
-# HERO BANNER
-# ─────────────────────────────────────────────────────────────────────────────
 st.markdown(f"""
-<div class="hero" style="display: flex; align-items: center;">
-  <div>
-      <h1 style="margin-top: 0; margin-bottom: 5px;">Q-SPHERE (DUAL ENGINE)</h1>
-      <p style="margin: 0;">Choose: Plotly (Interactive 3D) or Matplotlib (Classic) · Undo/Redo · Custom Angles · Save/Load</p>
-  </div>
+<div class="research-header" style="display: flex; align-items: center;">
+    <div>
+        <h1>⚛️ QuantumLab Enhanced</h1>
+        <p>Advanced quantum circuit simulation with state evolution animation and comprehensive multi-qubit operations</p>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
-# Display errors if any
-if st.session_state.error_message:
-    st.error(st.session_state.error_message)
-
-# ─────────────────────────────────────────────────────────────────────────────
-# LAYOUT
-# ─────────────────────────────────────────────────────────────────────────────
-sidebar, main = st.columns([1, 3], gap="large")
-
-# ═══════════════════════════════════════════════════════════════════
-# SIDEBAR
-# ═══════════════════════════════════════════════════════════════════
-with sidebar:
-    st.markdown("### 📈 Q-Stats")
-    st.metric("Gates Applied", len(st.session_state.gate_history))
-    st.metric("Max Gates", MAX_GATES)
+# Sidebar configuration
+with st.sidebar:
+    st.markdown("### ⚙️ System Configuration")
     
-    try:
-        sv_now = Statevector.from_instruction(st.session_state.circuit)
-        probs = sv_now.probabilities_dict()
-        dominant = max(probs, key=probs.get)
-        st.metric("Dominant State", f"|{dominant}⟩")
-        st.metric("Probability", f"{probs[dominant]:.3f}")
-    except Exception:
-        st.metric("Dominant State", "—")
-        st.metric("Probability", "—")
-
+    new_num_qubits = st.slider("Number of Qubits", 1, MAX_QUBITS, st.session_state.num_qubits)
+    
+    if new_num_qubits != st.session_state.num_qubits:
+        st.session_state.num_qubits = new_num_qubits
+        st.session_state.circuit = QuantumCircuit(new_num_qubits)
+        st.session_state.gate_history = []
+        st.session_state.analysis_cache = {}
+        st.session_state.state_history = []
+        st.rerun()
+    
     st.markdown("---")
     
-    # NEW: Save/Load Circuit
-    st.markdown("### 💾 Save/Load")
-    circuit_name = st.text_input("Circuit Name", value="my_circuit")
+    # State recording toggle
+    st.markdown("### 🎬 Animation Control")
+    record_toggle = st.toggle("Record State Evolution", value=st.session_state.record_states)
+    
+    if record_toggle != st.session_state.record_states:
+        st.session_state.record_states = record_toggle
+        if record_toggle:
+            st.session_state.state_history = []
+            st.success("Recording started!")
+        else:
+            st.info(f"Recorded {len(st.session_state.state_history)} states")
+    
+    if st.session_state.state_history:
+        st.metric("Recorded Steps", len(st.session_state.state_history))
+        if st.button("🗑️ Clear Recording"):
+            st.session_state.state_history = []
+            st.rerun()
+    
+    st.markdown("---")
+    
+    st.markdown("### 📊 Circuit Statistics")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Gates", len(st.session_state.gate_history))
+    with col2:
+        st.metric("Depth", st.session_state.circuit.depth())
+    
+    st.metric("Hilbert Space Dim", f"2^{st.session_state.num_qubits} = {2**st.session_state.num_qubits}")
+    
+    st.markdown("---")
+    
+    st.markdown("### 💾 Circuit Management")
     
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("💾 Save", use_container_width=True):
-            success, msg = save_circuit(circuit_name)
-            if success:
-                st.success(msg)
-            else:
-                st.error(msg)
+        if st.button("📋 Copy QASM", use_container_width=True):
+            try:
+                from qiskit import qasm2
+                qasm_str = qasm2.dumps(st.session_state.circuit)
+                st.code(qasm_str, language='text')
+            except Exception as e:
+                st.error(f"Error: {e}")
     
     with col2:
-        saved_files = list(CIRCUIT_SAVE_DIR.glob("*.json"))
-        if saved_files:
-            selected_file = st.selectbox(
-                "Load",
-                saved_files,
-                format_func=lambda x: x.stem,
-                label_visibility="collapsed"
-            )
-            if st.button("📂 Load", use_container_width=True):
-                success, msg = load_circuit(selected_file)
-                if success:
-                    st.success(msg)
-                    st.rerun()
-                else:
-                    st.error(msg)
-    
-    st.markdown("---")
-    st.markdown("### ⓘ About")
-    st.markdown("""
-<small style='color:#64748b;line-height:1.6'>
-<b style='color:#818cf8'>Q-SPHERE (Improved)</b><br>
-Version 2.0 with enhanced features<br>
-<br>
-<b>New Features:</b><br>
-• Undo/Redo functionality<br>
-• Custom rotation angles<br>
-• Circuit save/load<br>
-• Error handling<br>
-• Performance optimizations<br>
-• Fixed SWAP gate labeling<br>
-<br>
-Project by: Tharun J<br>
-</small>
-""", unsafe_allow_html=True)
-
-# ═══════════════════════════════════════════════════════════════════
-# MAIN CONTENT
-# ═══════════════════════════════════════════════════════════════════
-with main:
-    # Gate History
-    history_html = " ".join(
-        f'<span class="gate-pill">{g}</span>'
-        for g in st.session_state.gate_history
-    ) or "<span style='color:#475569'>No gates applied yet…</span>"
-
-    st.markdown(f"""
-    <div class="section-card">
-      <div class="section-title">🔗 Gate History</div>
-      <div class="gate-history">{history_html}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Tabs
-    if mode == "1-Qubit Explorer":
-        tab_op, tab_q0, tab_rot = st.tabs(["ⓘ Info", "🟣 Single Qubit", "🔄 Rotations"])
-    else:
-        tab_op, tab_q0, tab_q1, tab_2q, tab_rot = st.tabs([
-            "ⓘ Info", "🟣 Qubit 0", "🔵 Qubit 1", "🔗 2-Qubit", "🔄 Rotations"
-        ])
-
-    # Info Tab
-    with tab_op:
-        st.markdown('''
-        <div class="section-title">Gate Information</div>
-        <div style="color: #cbd5e1; font-family: 'Inter', sans-serif; font-size: 0.9rem; 
-                    line-height: 1.6; background: rgba(13, 17, 23, 0.4); padding: 20px; 
-                    border-radius: 12px; border: 1px solid rgba(99,102,241,0.15);">
-        <b>Single-Qubit Gates:</b><br>
-        <b>X</b> = Pauli-X (bit flip)<br>
-        <b>Y</b> = Pauli-Y (bit + phase flip)<br>
-        <b>Z</b> = Pauli-Z (phase flip)<br>
-        <b>H</b> = Hadamard (superposition)<br>
-        <b>S</b> = Phase gate (π/2 rotation)<br>
-        <b>S†</b> = S-dagger (−π/2 rotation)<br>
-        <b>T</b> = T gate (π/4 rotation)<br>
-        <b>T†</b> = T-dagger (−π/4 rotation)<br>
-        <br>
-        <b>Rotation Gates:</b><br>
-        <b>Rx(θ)</b> = Rotation around X-axis<br>
-        <b>Ry(θ)</b> = Rotation around Y-axis<br>
-        <b>Rz(θ)</b> = Rotation around Z-axis<br>
-        θ range: [−2π, 2π] (custom input available)<br>
-        <br>
-        <b>Two-Qubit Gates:</b><br>
-        <b>CNOT</b> = Controlled-NOT (q0 controls q1)<br>
-        <b>CZ</b> = Controlled-Z phase flip<br>
-        <b>SWAP</b> = Exchange qubit states<br>
-        </div>
-        ''', unsafe_allow_html=True)
-
-    # Qubit 0 Gates
-    with tab_q0:
-        st.markdown('<div class="section-title">Single-Qubit Gates → q0</div>', unsafe_allow_html=True)
-        cols = st.columns(8)
-        for col, gate in zip(cols, ['X','Y','Z','H','S','SD','T','TD']):
-            with col:
-                label = "S†" if gate == "SD" else ("T†" if gate == "TD" else gate)
-                if st.button(f"{label}₀", key=f"q0_{gate}"):
-                    if push_gate(f"{gate} q0", lambda c, g=gate: _GATE_LABEL_TO_OP[g](c, 0)):
-                        st.rerun()
-
-    # Qubit 1 Gates (2-Qubit mode only)
-    if mode == "2-Qubit Explorer":
-        with tab_q1:
-            st.markdown('<div class="section-title">Single-Qubit Gates → q1</div>', unsafe_allow_html=True)
-            cols = st.columns(8)
-            for col, gate in zip(cols, ['X','Y','Z','H','S','SD','T','TD']):
-                with col:
-                    label = "S†" if gate == "SD" else ("T†" if gate == "TD" else gate)
-                    if st.button(f"{label}₁", key=f"q1_{gate}"):
-                        if push_gate(f"{gate} q1", lambda c, g=gate: _GATE_LABEL_TO_OP[g](c, 1)):
-                            st.rerun()
-
-        # Two-Qubit Gates - FIXED SWAP LABELING
-        with tab_2q:
-            st.markdown('<div class="section-title">Two-Qubit Gates</div>', unsafe_allow_html=True)
-            c1, c2, c3, _ = st.columns([1,1,1,3])
-            with c1:
-                if st.button("CNOT", key="cnot"):
-                    # FIXED: Label as "CNOT" instead of "CNOT q0"
-                    if push_gate("CNOT", lambda c: c.cx(0, 1)):
-                        st.rerun()
-            with c2:
-                if st.button("CZ", key="cz"):
-                    # FIXED: Label as "CZ" instead of "CZ q0"
-                    if push_gate("CZ", lambda c: c.cz(0, 1)):
-                        st.rerun()
-            with c3:
-                if st.button("SWAP", key="swap"):
-                    # FIXED: Label as "SWAP" instead of "SWAP q0"
-                    if push_gate("SWAP", lambda c: c.swap(0, 1)):
-                        st.rerun()
-
-    # Rotation Gates - IMPROVED WITH CUSTOM ANGLES
-    with tab_rot:
-        st.markdown('<div class="section-title">Rotation Gates (Custom Angles)</div>', unsafe_allow_html=True)
-        
-        rc1, rc2 = st.columns(2)
-        with rc1:
-            rot_axis = st.selectbox("Axis", ["X","Y","Z"], key="rot_axis")
-        with rc2:
-            if mode == "1-Qubit Explorer":
-                rot_qubit = 0
-                st.info("Single qubit mode: q0")
-            else:
-                rot_qubit = st.selectbox("Qubit", [0, 1], key="rot_qubit")
-        
-        # NEW: Custom angle input
-        angle_mode = st.radio("Angle Input", ["Preset (×π)", "Custom"], horizontal=True)
-        
-        if angle_mode == "Preset (×π)":
-            rot_multiple = st.selectbox(
-                "θ (×π)", 
-                [0.25, 0.5, 1.0, 2.0, -0.25, -0.5, -1.0, -2.0],
-                format_func=lambda x: f"{x}π", 
-                key="rot_multiple"
-            )
-            theta = rot_multiple * np.pi
-            angle_label = f"{rot_multiple}π"
-        else:
-            # Custom angle slider
-            custom_angle = st.slider(
-                "θ (radians)",
-                min_value=-2*np.pi,
-                max_value=2*np.pi,
-                value=0.0,
-                step=0.1,
-                key="custom_angle"
-            )
-            theta = custom_angle
-            angle_label = f"{custom_angle:.2f}"
-            st.info(f"θ = {custom_angle:.3f} rad = {custom_angle/np.pi:.3f}π")
-        
-        if st.button(f"Apply R{rot_axis}({angle_label}) on q{rot_qubit}", key="apply_rot"):
-            if not validate_angle(theta):
-                st.error("Angle out of valid range [−4π, 4π]")
-            else:
-                q = rot_qubit
-                ax_lower = rot_axis.lower()
-                label = f"R{rot_axis}({angle_label}) q{rot_qubit}"
-                
-                if ax_lower == 'x':
-                    success = push_gate(label, lambda c, t=theta, qq=q: c.rx(t, qq))
-                elif ax_lower == 'y':
-                    success = push_gate(label, lambda c, t=theta, qq=q: c.ry(t, qq))
-                elif ax_lower == 'z':
-                    success = push_gate(label, lambda c, t=theta, qq=q: c.rz(t, qq))
-                
-                if success:
-                    st.rerun()
-
-    st.markdown("---")
-
-    # ACTION BUTTONS - WITH CIRCUIT DIAGRAM
-    a1, a2, a3, a4, a5, a6 = st.columns(6)
-    with a1:
-        show_sv = st.button("📊 Statevector", key="btn_sv", use_container_width=True)
-    with a2:
-        show_bloch = st.button("🌐 Bloch Spheres", key="btn_bloch", use_container_width=True)
-    with a3:
-        show_circuit = st.button("🔌 Circuit", key="btn_circuit", use_container_width=True)
-    with a4:
-        show_anim = st.button("🎬 Animate", key="btn_anim", use_container_width=True)
-    with a5:
-        # NEW: Undo button
-        if st.button("↩️ Undo", key="btn_undo", use_container_width=True, 
-                     disabled=len(st.session_state.undo_stack) == 0):
-            if undo_last_gate():
-                st.rerun()
-    with a6:
-        if st.button("🗑️ Clear", key="btn_clear", use_container_width=True):
-            st.session_state.circuit = QuantumCircuit(1) if mode == "1-Qubit Explorer" else QuantumCircuit(2)
+        if st.button("🗑️ Clear", use_container_width=True):
+            st.session_state.circuit = QuantumCircuit(st.session_state.num_qubits)
             st.session_state.gate_history = []
-            st.session_state.output = ""
-            st.session_state.undo_stack = []
-            st.session_state.error_message = None
+            st.session_state.analysis_cache = {}
+            st.session_state.state_history = []
             st.rerun()
 
-    # STATEVECTOR OUTPUT
-    if show_sv:
-        with st.spinner("Computing statevector..."):
-            try:
-                sv = Statevector.from_instruction(st.session_state.circuit)
-                probs = sv.probabilities_dict()
-                lines = ["Statevector:\n", str(sv), "\nProbabilities:"]
-                for state, prob in probs.items():
-                    lines.append(f"  |{state}⟩  ──  {prob:.6f}")
-                st.session_state.output = "\n".join(lines)
-            except Exception as e:
-                st.session_state.output = f"Error computing statevector: {e}"
+# Main content
+tab_build, tab_animate, tab_analyze, tab_multi = st.tabs([
+    "🔨 Circuit Builder",
+    "🎬 State Animation",
+    "📊 State Analysis",
+    "🔗 Multi-Qubit Gates"
+])
 
-    # STATIC BLOCH SPHERES
-    if show_bloch:
-        with st.spinner("Rendering Bloch spheres..."):
-            try:
-                num_q = 1 if mode == "1-Qubit Explorer" else 2
-                sv = Statevector.from_instruction(st.session_state.circuit)
-                b0, b1 = bloch_vectors(sv, num_q)
-
-                if use_plotly:
-                    # PLOTLY - Interactive 3D
-                    if num_q == 1:
-                        fig = draw_sphere_plotly("Qubit State", b0, '#bf40ff')
-                        st.plotly_chart(fig, use_container_width=True)
-                    else:
-                        # Create two columns for side-by-side spheres
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            fig1 = draw_sphere_plotly("Qubit 0", b0, '#bf40ff')
-                            st.plotly_chart(fig1, use_container_width=True)
-                        with col2:
-                            fig2 = draw_sphere_plotly("Qubit 1", b1, '#00e5ff')
-                            st.plotly_chart(fig2, use_container_width=True)
-                else:
-                    # MATPLOTLIB - Classic Static
-                    if num_q == 1:
-                        fig = plt.figure(figsize=(7, 7), facecolor='#000000')
-                        ax = fig.add_subplot(111, projection='3d')
-                        draw_sphere_matplotlib(ax, "Qubit State", b0, '#bf40ff')
-                    else:
-                        fig = plt.figure(figsize=(14, 7), facecolor='#000000')
-                        ax1 = fig.add_subplot(121, projection='3d')
-                        ax2 = fig.add_subplot(122, projection='3d')
-                        draw_sphere_matplotlib(ax1, "Qubit 0", b0, '#bf40ff')
-                        draw_sphere_matplotlib(ax2, "Qubit 1", b1, '#00e5ff')
-                    
-                    fig.suptitle("Bloch Sphere Representation", fontsize=16,
-                                 fontweight='bold', color='#ffffff', y=0.95)
-                    fig.patch.set_facecolor('#000000')
-                    plt.tight_layout(pad=2.0)
-                    st.pyplot(fig)
-                    plt.close(fig)
-                    
-            except Exception as e:
-                st.error(f"Bloch rendering error: {e}")
-
-    # CIRCUIT DIAGRAM VISUALIZATION
-    if show_circuit:
-        if not st.session_state.gate_history:
-            st.info("ℹ️ No gates applied yet. Apply some gates to see the circuit diagram!")
-        else:
-            with st.spinner("Drawing circuit diagram..."):
-                try:
-                    from qiskit.visualization import circuit_drawer
-                    
-                    # Draw circuit using matplotlib backend for better quality
-                    fig = circuit_drawer(
-                        st.session_state.circuit,
-                        output='mpl',
-                        style={'backgroundcolor': '#1a1f3c'},
-                        plot_barriers=False,
-                        fold=20
-                    )
-                    
-                    # Style the figure
-                    fig.patch.set_facecolor('#1a1f3c')
-                    
-                    # Display in a nice container
-                    st.markdown('<div class="section-title">🔌 Quantum Circuit Diagram</div>', unsafe_allow_html=True)
-                    st.pyplot(fig)
-                    plt.close(fig)
-                    
-                    # Show circuit depth info
-                    depth = st.session_state.circuit.depth()
-                    num_gates = len(st.session_state.gate_history)
-                    
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.metric("Circuit Depth", depth)
-                    with col2:
-                        st.metric("Total Gates", num_gates)
-                    with col3:
-                        st.metric("Qubits", st.session_state.circuit.num_qubits)
-                    
-                except Exception as e:
-                    st.error(f"Circuit diagram error: {e}")
-
-    # ANIMATED BLOCH - SUPPORTS BOTH PLOTLY AND MATPLOTLIB
-    if show_anim:
-        if not st.session_state.gate_history:
-            st.warning("⚠️ Apply at least one gate before animating.")
-        else:
-            try:
-                states, gate_labels, pause_indices = build_step_states()
-                n_frames = len(states)
-                
-                # Check frame limit
-                if n_frames > MAX_ANIMATION_FRAMES:
-                    st.error(f"Too many animation frames ({n_frames}). Maximum is {MAX_ANIMATION_FRAMES}. "
-                            f"Reduce circuit complexity or gate count.")
-                else:
-                    progress = st.progress(0, text="Rendering animation frames…")
-                    frames_b64 = []
-
-                    num_q = 1 if mode == "1-Qubit Explorer" else 2
-
-                    for i, (sv, label) in enumerate(zip(states, gate_labels + [""])):
-                        b0, b1 = bloch_vectors(sv, num_q)
-                        title = f"Applying {label}" if i < len(gate_labels) else "Final State"
-
-                        if use_plotly:
-                            # PLOTLY ANIMATION
-                            if num_q == 1:
-                                fig = draw_sphere_plotly(f"Qubit · Step {i}", b0, '#bf40ff')
-                                fig.update_layout(
-                                    title=dict(text=f"{title}<br>Step {i}", 
-                                             font=dict(size=18, color='#ffffff')),
-                                    height=500
-                                )
-                                img_bytes = fig.to_image(format="png", width=700, height=500)
-                                frames_b64.append(base64.b64encode(img_bytes).decode())
-                            else:
-                                # Two spheres - combine images
-                                fig1 = draw_sphere_plotly(f"Qubit 0 · Step {i}", b0, '#bf40ff')
-                                fig2 = draw_sphere_plotly(f"Qubit 1 · Step {i}", b1, '#00e5ff')
-                                
-                                img1_bytes = fig1.to_image(format="png", width=600, height=500)
-                                img2_bytes = fig2.to_image(format="png", width=600, height=500)
-                                
-                                img1 = Image.open(io.BytesIO(img1_bytes))
-                                img2 = Image.open(io.BytesIO(img2_bytes))
-                                
-                                combined = Image.new('RGB', (1200, 500), color='#000000')
-                                combined.paste(img1, (0, 0))
-                                combined.paste(img2, (600, 0))
-                                
-                                buf = io.BytesIO()
-                                combined.save(buf, format='PNG')
-                                buf.seek(0)
-                                frames_b64.append(base64.b64encode(buf.read()).decode())
-                        else:
-                            # MATPLOTLIB ANIMATION (Faster rendering)
-                            if num_q == 1:
-                                fig = plt.figure(figsize=(7, 7), facecolor='#000000')
-                                ax = fig.add_subplot(111, projection='3d')
-                                draw_sphere_matplotlib(ax, f"Qubit · Step {i}", b0, '#bf40ff')
-                            else:
-                                fig = plt.figure(figsize=(14, 7), facecolor='#000000')
-                                ax1 = fig.add_subplot(121, projection='3d')
-                                ax2 = fig.add_subplot(122, projection='3d')
-                                draw_sphere_matplotlib(ax1, f"Qubit 0 · Step {i}", b0, '#bf40ff')
-                                draw_sphere_matplotlib(ax2, f"Qubit 1 · Step {i}", b1, '#00e5ff')
-                            
-                            fig.suptitle(title, fontsize=15,
-                                         fontweight='bold', color='#ffffff', y=0.95)
-                            fig.patch.set_facecolor('#000000')
-                            plt.tight_layout(pad=2.0)
-
-                            buf = io.BytesIO()
-                            fig.savefig(buf, format='png', dpi=110, facecolor='#000000')
-                            plt.close(fig)
-                            buf.seek(0)
-                            frames_b64.append(base64.b64encode(buf.read()).decode())
-                        
-                        progress.progress((i + 1) / n_frames,
-                                          text=f"Rendered {i+1}/{n_frames}")
-
-                    progress.empty()
-
-                    # JavaScript slideshow
-                    frames_js = str(frames_b64).replace("'", '"')
-                    pause_js = str(pause_indices)
-                    playback_speed = 120 if mode == "1-Qubit Explorer" else 900
-                    
-                    anim_html = f"""
-<div style="text-align:center; background:#0d1117; border-radius:16px; padding:20px;
-            border:1px solid rgba(99,102,241,0.25);">
-  <img id="qframe" src="data:image/png;base64,{frames_b64[0]}"
-       style="max-width:100%; border-radius:12px;" />
-  <br/><br/>
-  <div style="display:flex; justify-content:center; align-items:center; gap:16px;">
-    <button id="prevBtn" onclick="changeFrame(-1)"
-      style="background:#1e293b;color:#818cf8;border:1px solid #818cf8;
-             border-radius:8px;padding:8px 18px;cursor:pointer;font-size:14px;">
-      ◀ Prev
-    </button>
-    <span id="frameLabel"
-      style="color:#94a3b8;font-family:monospace;min-width:90px;text-align:center">
-      Step 0 / {n_frames-1}
-    </span>
-    <button id="nextBtn" onclick="changeFrame(1)"
-      style="background:#1e293b;color:#818cf8;border:1px solid #818cf8;
-             border-radius:8px;padding:8px 18px;cursor:pointer;font-size:14px;">
-      Next ▶
-    </button>
-    <button id="playBtn" onclick="togglePlay()"
-      style="background:linear-gradient(135deg,#4338ca,#7c3aed);color:white;
-             border:none;border-radius:8px;padding:8px 22px;cursor:pointer;font-size:14px;
-             font-weight:600;">
-      ▶ Play
-    </button>
-  </div>
-</div>
-
-<script>
-(function(){{
-  const frames = {frames_js};
-  const pauseIndices = {pause_js};
-  let cur = 0, timer = null;
-  let isPlaying = false;
-  const img = document.getElementById('qframe');
-  const lbl = document.getElementById('frameLabel');
-  const playBtn = document.getElementById('playBtn');
-
-  function show(idx) {{
-    cur = Math.max(0, Math.min(idx, frames.length - 1));
-    img.src = 'data:image/png;base64,' + frames[cur];
-    lbl.textContent = 'Step ' + cur + ' / ' + (frames.length - 1);
-  }}
-
-  function nextFrameLogic() {{
-    if (cur >= frames.length - 1) {{
-      isPlaying = false;
-      playBtn.textContent = '▶ Play';
-      return;
-    }}
-    show(cur + 1);
+# ═══════════════════════════════════════════════════════════════════════════
+# CIRCUIT BUILDER TAB
+# ═══════════════════════════════════════════════════════════════════════════
+with tab_build:
+    st.markdown("### Quantum Circuit Construction")
     
-    if (pauseIndices.includes(cur) && isPlaying) {{
-      timer = setTimeout(nextFrameLogic, 2000);
-    }} else if (isPlaying) {{
-      timer = setTimeout(nextFrameLogic, {playback_speed});
-    }}
-  }}
+    # Display circuit
+    if st.session_state.gate_history:
+        try:
+            fig = circuit_drawer(st.session_state.circuit, output='mpl', 
+                               style={'backgroundcolor': '#ffffff'})
+            fig.patch.set_facecolor('#ffffff')
+            st.pyplot(fig)
+            plt.close(fig)
+        except:
+            st.code("\n".join(st.session_state.gate_history))
+    else:
+        st.info("Circuit is empty. Add gates below.")
+    
+    st.markdown("---")
+    
+    # Gate palette
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("**Single-Qubit Gates**")
+        
+        qubit_select = st.selectbox("Target Qubit", range(st.session_state.num_qubits), key="sq_qubit")
+        
+        gate_cols = st.columns(4)
+        with gate_cols[0]:
+            if st.button("H", use_container_width=True):
+                apply_gate('H', {'qubit': qubit_select})
+                st.rerun()
+        with gate_cols[1]:
+            if st.button("X", use_container_width=True):
+                apply_gate('X', {'qubit': qubit_select})
+                st.rerun()
+        with gate_cols[2]:
+            if st.button("Y", use_container_width=True):
+                apply_gate('Y', {'qubit': qubit_select})
+                st.rerun()
+        with gate_cols[3]:
+            if st.button("Z", use_container_width=True):
+                apply_gate('Z', {'qubit': qubit_select})
+                st.rerun()
+        
+        gate_cols2 = st.columns(4)
+        with gate_cols2[0]:
+            if st.button("S", use_container_width=True):
+                apply_gate('S', {'qubit': qubit_select})
+                st.rerun()
+        with gate_cols2[1]:
+            if st.button("T", use_container_width=True):
+                apply_gate('T', {'qubit': qubit_select})
+                st.rerun()
+        with gate_cols2[2]:
+            if st.button("S†", use_container_width=True):
+                st.session_state.circuit.sdg(qubit_select)
+                st.session_state.gate_history.append(f"S† q{qubit_select}")
+                record_state_snapshot()
+                st.rerun()
+        with gate_cols2[3]:
+            if st.button("T†", use_container_width=True):
+                st.session_state.circuit.tdg(qubit_select)
+                st.session_state.gate_history.append(f"T† q{qubit_select}")
+                record_state_snapshot()
+                st.rerun()
+    
+    with col2:
+        st.markdown("**Rotation Gates**")
+        
+        rot_qubit = st.selectbox("Target Qubit", range(st.session_state.num_qubits), key="rot_qubit")
+        rot_axis = st.selectbox("Axis", ["X", "Y", "Z"])
+        rot_angle = st.number_input("Angle (radians)", -2*np.pi, 2*np.pi, 0.0, 0.1)
+        
+        if st.button(f"Apply R{rot_axis}({rot_angle:.2f})", use_container_width=True):
+            apply_gate(f'R{rot_axis}', {'qubit': rot_qubit, 'angle': rot_angle})
+            st.rerun()
+        
+        st.markdown("**Quick Angles**")
+        quick_cols = st.columns(3)
+        with quick_cols[0]:
+            if st.button("π/4", key="pi4"):
+                apply_gate(f'R{rot_axis}', {'qubit': rot_qubit, 'angle': np.pi/4})
+                st.rerun()
+        with quick_cols[1]:
+            if st.button("π/2", key="pi2"):
+                apply_gate(f'R{rot_axis}', {'qubit': rot_qubit, 'angle': np.pi/2})
+                st.rerun()
+        with quick_cols[2]:
+            if st.button("π", key="pi"):
+                apply_gate(f'R{rot_axis}', {'qubit': rot_qubit, 'angle': np.pi})
+                st.rerun()
+    
+    with col3:
+        st.markdown("**Two-Qubit Gates**")
+        
+        if st.session_state.num_qubits >= 2:
+            control_q = st.selectbox("Control", range(st.session_state.num_qubits), key="control")
+            target_q = st.selectbox("Target", range(st.session_state.num_qubits), key="target")
+            
+            if control_q == target_q:
+                st.warning("Control ≠ Target required")
+            else:
+                gate_cols3 = st.columns(3)
+                with gate_cols3[0]:
+                    if st.button("CNOT", use_container_width=True):
+                        apply_gate('CNOT', {'control': control_q, 'target': target_q})
+                        st.rerun()
+                with gate_cols3[1]:
+                    if st.button("CZ", use_container_width=True):
+                        apply_gate('CZ', {'control': control_q, 'target': target_q})
+                        st.rerun()
+                with gate_cols3[2]:
+                    if st.button("SWAP", use_container_width=True):
+                        apply_gate('SWAP', {'control': control_q, 'target': target_q})
+                        st.rerun()
+        else:
+            st.info("Need ≥2 qubits for two-qubit gates")
 
-  window.changeFrame = function(d) {{ 
-      isPlaying = false;
-      clearTimeout(timer); timer=null; playBtn.textContent='▶ Play'; show(cur + d); 
-  }};
+# ═══════════════════════════════════════════════════════════════════════════
+# STATE ANIMATION TAB
+# ═══════════════════════════════════════════════════════════════════════════
+with tab_animate:
+    st.markdown("### 🎬 Quantum State Evolution Animation")
+    
+    if not st.session_state.state_history:
+        st.info("Enable 'Record State Evolution' in the sidebar and build a circuit to see animation.")
+    else:
+        st.success(f"✓ {len(st.session_state.state_history)} state snapshots recorded")
+        
+        # Animation controls
+        col1, col2, col3 = st.columns([2, 1, 1])
+        
+        with col1:
+            step_idx = st.slider(
+                "Animation Step",
+                0,
+                len(st.session_state.state_history) - 1,
+                0,
+                help="Slide to see state evolution"
+            )
+        
+        with col2:
+            auto_play = st.button("▶️ Auto Play")
+        
+        with col3:
+            speed = st.select_slider("Speed", options=[0.5, 1, 2, 3], value=1)
+        
+        # Get current state
+        current_state = st.session_state.state_history[step_idx]
+        
+        st.markdown(f"### Step {step_idx}: {current_state['gate']}")
+        
+        # Auto-play functionality
+        if auto_play:
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            for i in range(len(st.session_state.state_history)):
+                state = st.session_state.state_history[i]
+                progress_bar.progress(i / (len(st.session_state.state_history) - 1))
+                status_text.text(f"Step {i}: {state['gate']}")
+                time.sleep(0.5 / speed)
+            
+            progress_bar.empty()
+            status_text.empty()
+            st.success("Animation complete!")
+        
+        # Visualizations
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("#### Probability Distribution")
+            
+            probs = current_state['probabilities']
+            
+            fig = go.Figure(data=[
+                go.Bar(
+                    x=[f"|{k}⟩" for k in probs.keys()],
+                    y=list(probs.values()),
+                    marker_color='#1f6feb',
+                    text=[f"{v*100:.1f}%" for v in probs.values()],
+                    textposition='auto'
+                )
+            ])
+            
+            fig.update_layout(
+                xaxis_title="Basis State",
+                yaxis_title="Probability",
+                paper_bgcolor='#ffffff',
+                plot_bgcolor='#f6f8fa',
+                font=dict(color='#1a1a2e'),
+                height=400
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+        
+        with col2:
+            st.markdown("#### State Vector Amplitudes")
+            
+            sv_data = current_state['statevector']
+            amplitudes = np.abs(sv_data)
+            phases = np.angle(sv_data)
+            
+            fig = go.Figure()
+            
+            fig.add_trace(go.Bar(
+                name='Magnitude',
+                x=[f"|{i:0{st.session_state.num_qubits}b}⟩" for i in range(len(sv_data))],
+                y=amplitudes,
+                marker_color='#1f6feb'
+            ))
+            
+            fig.update_layout(
+                xaxis_title="Basis State",
+                yaxis_title="|Amplitude|",
+                paper_bgcolor='#ffffff',
+                plot_bgcolor='#f6f8fa',
+                font=dict(color='#1a1a2e'),
+                height=400
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+        
+        # Bloch sphere animation for small systems
+        if 'bloch_vectors' in current_state and st.session_state.num_qubits <= 3:
+            st.markdown("---")
+            st.markdown("#### Bloch Sphere Representation")
+            
+            bloch_cols = st.columns(min(st.session_state.num_qubits, 3))
+            
+            for i, col in enumerate(bloch_cols):
+                with col:
+                    vec = current_state['bloch_vectors'][i]
+                    fig = draw_bloch_sphere(f"Qubit {i}", vec)
+                    st.plotly_chart(fig, use_container_width=True)
+        
+        # Evolution trajectory
+        if len(st.session_state.state_history) > 1 and st.session_state.num_qubits <= 2:
+            st.markdown("---")
+            st.markdown("#### Evolution Trajectory")
+            
+            # Track probability evolution
+            all_states = set()
+            for state in st.session_state.state_history:
+                all_states.update(state['probabilities'].keys())
+            
+            all_states = sorted(list(all_states))
+            
+            fig = go.Figure()
+            
+            for basis_state in all_states:
+                probs_over_time = []
+                for state in st.session_state.state_history:
+                    probs_over_time.append(state['probabilities'].get(basis_state, 0))
+                
+                fig.add_trace(go.Scatter(
+                    x=list(range(len(st.session_state.state_history))),
+                    y=probs_over_time,
+                    mode='lines+markers',
+                    name=f"|{basis_state}⟩",
+                    line=dict(width=2),
+                    marker=dict(size=6)
+                ))
+            
+            # Highlight current step
+            fig.add_vline(x=step_idx, line_dash="dash", line_color="red", 
+                         annotation_text="Current Step")
+            
+            fig.update_layout(
+                title="Probability Evolution Over Time",
+                xaxis_title="Step",
+                yaxis_title="Probability",
+                paper_bgcolor='#ffffff',
+                plot_bgcolor='#f6f8fa',
+                font=dict(color='#1a1a2e'),
+                height=500,
+                hovermode='x unified'
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
 
-  window.togglePlay = function() {{
-    if (isPlaying) {{
-      isPlaying = false;
-      clearTimeout(timer); timer = null; playBtn.textContent = '▶ Play';
-    }} else {{
-      isPlaying = true;
-      if (cur >= frames.length - 1) cur = 0;
-      playBtn.textContent = '⏸ Pause';
-      nextFrameLogic();
-    }}
-  }};
-}})();
-</script>
-"""
-                    st.components.v1.html(anim_html, height=600)
+# ═══════════════════════════════════════════════════════════════════════════
+# STATE ANALYSIS TAB
+# ═══════════════════════════════════════════════════════════════════════════
+with tab_analyze:
+    st.markdown("### Quantum State Analysis")
+    
+    if not st.session_state.gate_history:
+        st.info("Build a circuit first to analyze its quantum state.")
+    else:
+        try:
+            # Compute state
+            sv = Statevector.from_instruction(st.session_state.circuit)
+            dm = DensityMatrix(sv)
+            
+            # Analysis
+            analyzer = QuantumStateAnalyzer()
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("#### State Vector Visualization")
+                
+                # Bloch spheres for each qubit
+                if st.session_state.num_qubits <= 3:
+                    for i in range(st.session_state.num_qubits):
+                        # Partial trace to get single qubit state
+                        if st.session_state.num_qubits == 1:
+                            rho_i = dm.data
+                        else:
+                            trace_qubits = [j for j in range(st.session_state.num_qubits) if j != i]
+                            rho_i = partial_trace(sv, trace_qubits).data
+                        
+                        bloch_vec = analyzer.density_matrix_to_bloch(rho_i)
+                        fig = draw_bloch_sphere(f"Qubit {i}", bloch_vec)
+                        st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.warning("Too many qubits for full Bloch sphere display. Showing first 3.")
+                    for i in range(3):
+                        trace_qubits = [j for j in range(st.session_state.num_qubits) if j != i]
+                        rho_i = partial_trace(sv, trace_qubits).data
+                        bloch_vec = analyzer.density_matrix_to_bloch(rho_i)
+                        fig = draw_bloch_sphere(f"Qubit {i}", bloch_vec)
+                        st.plotly_chart(fig, use_container_width=True)
+            
+            with col2:
+                st.markdown("#### Quantum Metrics")
+                
+                # Purity
+                purity = analyzer.compute_purity(dm.data)
+                st.metric("Purity Tr(ρ²)", f"{purity:.6f}")
+                st.caption("Purity = 1 for pure states, < 1 for mixed states")
+                
+                # Entropy
+                entropy = analyzer.compute_entropy(dm.data)
+                st.metric("Von Neumann Entropy", f"{entropy:.6f}")
+                st.caption("Entropy = 0 for pure states, > 0 for mixed states")
+                
+                # Entanglement measures
+                if st.session_state.num_qubits == 2:
+                    concurrence = analyzer.compute_concurrence(sv)
+                    st.metric("Concurrence", f"{concurrence:.6f}")
+                    st.caption("Concurrence ∈ [0,1], 0=separable, 1=maximally entangled")
+                    
+                    negativity = analyzer.compute_negativity(sv, subsystem=0)
+                    st.metric("Negativity", f"{negativity:.6f}")
+                    st.caption("Negativity > 0 indicates entanglement")
+                
+                st.markdown("---")
+                
+                # Probability distribution
+                st.markdown("#### Measurement Probabilities")
+                probs = sv.probabilities_dict()
+                
+                prob_df = pd.DataFrame({
+                    'State': [f"|{k}⟩" for k in probs.keys()],
+                    'Probability': list(probs.values()),
+                    'Percentage': [f"{v*100:.2f}%" for v in probs.values()]
+                })
+                
+                st.dataframe(prob_df, use_container_width=True, hide_index=True)
+                
+                # Plot probabilities
+                fig = go.Figure(data=[
+                    go.Bar(
+                        x=[f"|{k}⟩" for k in probs.keys()],
+                        y=list(probs.values()),
+                        marker_color='#1f6feb',
+                        text=[f"{v*100:.1f}%" for v in probs.values()],
+                        textposition='auto'
+                    )
+                ])
+                
+                fig.update_layout(
+                    title="Measurement Outcome Distribution",
+                    xaxis_title="Basis State",
+                    yaxis_title="Probability",
+                    paper_bgcolor='#ffffff',
+                    plot_bgcolor='#f6f8fa',
+                    font=dict(color='#1a1a2e'),
+                    height=300
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+        
+        except Exception as e:
+            st.error(f"Analysis error: {e}")
 
-            except Exception as e:
-                st.error(f"Animation error: {e}")
+# ═══════════════════════════════════════════════════════════════════════════
+# MULTI-QUBIT GATES TAB
+# ═══════════════════════════════════════════════════════════════════════════
+with tab_multi:
+    st.markdown("### 🔗 Advanced Multi-Qubit Gates")
+    
+    if st.session_state.num_qubits < 2:
+        st.warning("Need at least 2 qubits for multi-qubit operations. Adjust in sidebar.")
+    else:
+        st.markdown("#### Two-Qubit Gate Operations")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("**CNOT (Controlled-X)**")
+            st.caption("Flips target if control is |1⟩")
+            
+            cnot_ctrl = st.selectbox("Control qubit", range(st.session_state.num_qubits), key="cnot_ctrl")
+            cnot_tgt = st.selectbox("Target qubit", range(st.session_state.num_qubits), key="cnot_tgt")
+            
+            if cnot_ctrl != cnot_tgt:
+                if st.button("Apply CNOT", use_container_width=True):
+                    apply_gate('CNOT', {'control': cnot_ctrl, 'target': cnot_tgt})
+                    st.rerun()
+            else:
+                st.error("Control and target must be different")
+            
+            st.markdown("---")
+            
+            st.markdown("**CZ (Controlled-Z)**")
+            st.caption("Applies Z to target if control is |1⟩")
+            
+            cz_ctrl = st.selectbox("Control qubit", range(st.session_state.num_qubits), key="cz_ctrl")
+            cz_tgt = st.selectbox("Target qubit", range(st.session_state.num_qubits), key="cz_tgt")
+            
+            if cz_ctrl != cz_tgt:
+                if st.button("Apply CZ", use_container_width=True):
+                    apply_gate('CZ', {'control': cz_ctrl, 'target': cz_tgt})
+                    st.rerun()
+            else:
+                st.error("Control and target must be different")
+        
+        with col2:
+            st.markdown("**SWAP**")
+            st.caption("Exchanges quantum states of two qubits")
+            
+            swap_q1 = st.selectbox("Qubit 1", range(st.session_state.num_qubits), key="swap_q1")
+            swap_q2 = st.selectbox("Qubit 2", range(st.session_state.num_qubits), key="swap_q2")
+            
+            if swap_q1 != swap_q2:
+                if st.button("Apply SWAP", use_container_width=True):
+                    apply_gate('SWAP', {'control': swap_q1, 'target': swap_q2})
+                    st.rerun()
+            else:
+                st.error("Must select different qubits")
+            
+            st.markdown("---")
+            
+            st.markdown("**Controlled Rotations**")
+            
+            crot_ctrl = st.selectbox("Control", range(st.session_state.num_qubits), key="crot_ctrl")
+            crot_tgt = st.selectbox("Target", range(st.session_state.num_qubits), key="crot_tgt")
+            crot_axis = st.selectbox("Axis", ["X", "Y", "Z"], key="crot_axis")
+            crot_angle = st.number_input("Angle (rad)", -np.pi, np.pi, 0.0, 0.1, key="crot_angle")
+            
+            if crot_ctrl != crot_tgt:
+                if st.button(f"Apply CR{crot_axis}", use_container_width=True):
+                    if crot_axis == "X":
+                        st.session_state.circuit.crx(crot_angle, crot_ctrl, crot_tgt)
+                    elif crot_axis == "Y":
+                        st.session_state.circuit.cry(crot_angle, crot_ctrl, crot_tgt)
+                    else:
+                        st.session_state.circuit.crz(crot_angle, crot_ctrl, crot_tgt)
+                    
+                    st.session_state.gate_history.append(
+                        f"CR{crot_axis}({crot_angle:.3f}) q{crot_ctrl}→q{crot_tgt}"
+                    )
+                    record_state_snapshot()
+                    st.rerun()
+        
+        # Three-qubit gates
+        if st.session_state.num_qubits >= 3:
+            st.markdown("---")
+            st.markdown("#### Three-Qubit Gates")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("**Toffoli (CCX)**")
+                st.caption("Controlled-controlled-X: flips target if both controls are |1⟩")
+                
+                tof_c1 = st.selectbox("Control 1", range(st.session_state.num_qubits), key="tof_c1")
+                tof_c2 = st.selectbox("Control 2", range(st.session_state.num_qubits), key="tof_c2")
+                tof_tgt = st.selectbox("Target", range(st.session_state.num_qubits), key="tof_tgt")
+                
+                if len({tof_c1, tof_c2, tof_tgt}) == 3:
+                    if st.button("Apply Toffoli", use_container_width=True):
+                        apply_gate('Toffoli', {
+                            'control1': tof_c1,
+                            'control2': tof_c2,
+                            'target': tof_tgt
+                        })
+                        st.rerun()
+                else:
+                    st.error("All qubits must be different")
+            
+            with col2:
+                st.markdown("**Fredkin (CSWAP)**")
+                st.caption("Controlled-SWAP: swaps targets if control is |1⟩")
+                
+                frd_ctrl = st.selectbox("Control", range(st.session_state.num_qubits), key="frd_ctrl")
+                frd_t1 = st.selectbox("Target 1", range(st.session_state.num_qubits), key="frd_t1")
+                frd_t2 = st.selectbox("Target 2", range(st.session_state.num_qubits), key="frd_t2")
+                
+                if len({frd_ctrl, frd_t1, frd_t2}) == 3:
+                    if st.button("Apply Fredkin", use_container_width=True):
+                        st.session_state.circuit.cswap(frd_ctrl, frd_t1, frd_t2)
+                        st.session_state.gate_history.append(
+                            f"CSWAP q{frd_ctrl}: q{frd_t1}↔q{frd_t2}"
+                        )
+                        record_state_snapshot()
+                        st.rerun()
+                else:
+                    st.error("All qubits must be different")
+        
+        # Quick entanglement circuits
+        st.markdown("---")
+        st.markdown("#### Quick Entanglement Circuits")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            if st.button("Bell State |Φ+⟩", use_container_width=True):
+                if st.session_state.num_qubits >= 2:
+                    st.session_state.circuit.h(0)
+                    st.session_state.circuit.cx(0, 1)
+                    st.session_state.gate_history.extend(["H q0", "CNOT q0→q1"])
+                    record_state_snapshot()
+                    st.rerun()
+        
+        with col2:
+            if st.button("GHZ State", use_container_width=True):
+                if st.session_state.num_qubits >= 3:
+                    st.session_state.circuit.h(0)
+                    for i in range(1, min(st.session_state.num_qubits, 3)):
+                        st.session_state.circuit.cx(0, i)
+                    st.session_state.gate_history.append("GHZ state preparation")
+                    record_state_snapshot()
+                    st.rerun()
+        
+        with col3:
+            if st.button("W State", use_container_width=True):
+                if st.session_state.num_qubits >= 3:
+                    # W state for 3 qubits
+                    theta1 = np.arccos(np.sqrt(1/3))
+                    theta2 = np.arccos(np.sqrt(1/2))
+                    
+                    st.session_state.circuit.ry(theta1, 0)
+                    st.session_state.circuit.ch(0, 1)
+                    st.session_state.circuit.x(0)
+                    st.session_state.circuit.ch(0, 2)
+                    st.session_state.circuit.x(0)
+                    
+                    st.session_state.gate_history.append("W state preparation")
+                    record_state_snapshot()
+                    st.rerun()
 
-    # OUTPUT BOX
-    if st.session_state.output:
-        st.markdown('<div class="section-title">📤 Output</div>', unsafe_allow_html=True)
-        st.markdown(
-            f'<div class="output-box">{st.session_state.output}</div>',
-            unsafe_allow_html=True
-        )
+# Footer
+st.markdown("---")
+st.markdown("""
+<div style='text-align: center; color: #57606a; padding: 1.5rem 0;'>
+    <p style='margin: 0; font-size: 0.875rem;'>
+        QuantumLab Enhanced | Built with Qiskit & Streamlit
+    </p>
+    <p style='margin: 0.5rem 0 0 0; font-size: 0.8rem;'>
+        Advanced quantum circuit simulation with state evolution animation
+    </p>
+</div>
+""", unsafe_allow_html=True)
