@@ -48,9 +48,15 @@ st.markdown("""
 <style>
   @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
-  * { font-family: 'IBM Plex Sans', -apple-system, sans-serif; }
+  * { 
+    font-family: 'IBM Plex Sans', -apple-system, sans-serif;
+    color: #000000 !important;
+  }
   
-  .stApp { background: #ffffff; color: #1a1a2e; }
+  .stApp { 
+    background: #ffffff; 
+    color: #000000 !important;
+  }
 
   /* Professional header */
   .research-header {
@@ -64,13 +70,13 @@ st.markdown("""
   .research-header h1 {
     font-size: 2rem;
     font-weight: 600;
-    color: white;
+    color: white !important;
     margin: 0 0 0.5rem 0;
     letter-spacing: -0.02em;
   }
   
   .research-header p {
-    color: rgba(255, 255, 255, 0.95);
+    color: rgba(255, 255, 255, 0.95) !important;
     font-size: 1rem;
     margin: 0;
     font-weight: 400;
@@ -88,7 +94,7 @@ st.markdown("""
   .panel-header {
     font-size: 0.875rem;
     font-weight: 600;
-    color: #1a1a2e;
+    color: #000000 !important;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin-bottom: 0.75rem;
@@ -103,15 +109,19 @@ st.markdown("""
   }
   
   [data-testid="metric-container"] label {
-    color: #57606a !important;
+    color: #000000 !important;
     font-weight: 500 !important;
     font-size: 0.75rem !important;
   }
   
   [data-testid="metric-container"] [data-testid="stMetricValue"] {
-    color: #1a1a2e !important;
+    color: #000000 !important;
     font-weight: 600 !important;
     font-family: 'IBM Plex Mono', monospace !important;
+  }
+  
+  [data-testid="metric-container"] [data-testid="stMetricDelta"] {
+    color: #000000 !important;
   }
 
   /* Buttons */
@@ -129,22 +139,25 @@ st.markdown("""
   div[data-testid="stButton"] > button:hover {
     background: #0969da !important;
     border-color: #58a6ff !important;
+    color: white !important;
   }
   
   .secondary-btn div[data-testid="stButton"] > button {
     background: transparent !important;
     border: 1px solid #d0d7de !important;
-    color: #1a1a2e !important;
+    color: #000000 !important;
   }
   
   .secondary-btn div[data-testid="stButton"] > button:hover {
     background: #f6f8fa !important;
     border-color: #8b949e !important;
+    color: #000000 !important;
   }
   
   .danger-btn div[data-testid="stButton"] > button {
     background: #da3633 !important;
     border: 1px solid #f85149 !important;
+    color: white !important;
   }
 
   /* Code blocks */
@@ -155,7 +168,7 @@ st.markdown("""
     padding: 1rem;
     font-family: 'IBM Plex Mono', monospace;
     font-size: 0.875rem;
-    color: #1a1a2e;
+    color: #000000 !important;
     overflow-x: auto;
   }
 
@@ -167,7 +180,7 @@ st.markdown("""
   
   .stTabs [data-baseweb="tab"] {
     background: transparent !important;
-    color: #57606a !important;
+    color: #000000 !important;
     font-weight: 500 !important;
     border-radius: 6px 6px 0 0 !important;
     padding: 0.5rem 1rem !important;
@@ -175,8 +188,9 @@ st.markdown("""
   }
   
   .stTabs [aria-selected="true"] {
-    color: #1a1a2e !important;
+    color: #000000 !important;
     border-bottom: 2px solid #1f6feb !important;
+    font-weight: 600 !important;
   }
 
   /* Sidebar */
@@ -184,43 +198,67 @@ st.markdown("""
     background: #f6f8fa !important;
     border-right: 1px solid #d0d7de !important;
   }
+  
+  [data-testid="stSidebar"] * {
+    color: #000000 !important;
+  }
 
   /* Info boxes */
   .stInfo {
     background: rgba(56, 139, 253, 0.1) !important;
     border: 1px solid #1f6feb !important;
-    color: #0550ae !important;
+    color: #000000 !important;
+  }
+  
+  .stInfo * {
+    color: #000000 !important;
   }
   
   .stSuccess {
     background: rgba(31, 111, 235, 0.1) !important;
     border: 1px solid #1f6feb !important;
-    color: #0969da !important;
+    color: #000000 !important;
+  }
+  
+  .stSuccess * {
+    color: #000000 !important;
   }
   
   .stWarning {
     background: rgba(187, 128, 9, 0.1) !important;
     border: 1px solid #9e6a03 !important;
-    color: #7a4706 !important;
+    color: #000000 !important;
+  }
+  
+  .stWarning * {
+    color: #000000 !important;
   }
   
   .stError {
     background: rgba(248, 81, 73, 0.1) !important;
     border: 1px solid #da3633 !important;
-    color: #a40e26 !important;
+    color: #000000 !important;
+  }
+  
+  .stError * {
+    color: #000000 !important;
   }
 
   /* Tables */
   .dataframe {
     background: #ffffff;
-    color: #1a1a2e;
+    color: #000000 !important;
     border: 1px solid #d0d7de;
   }
   
   .dataframe th {
     background: #f6f8fa !important;
-    color: #1a1a2e !important;
+    color: #000000 !important;
     font-weight: 600 !important;
+  }
+  
+  .dataframe td {
+    color: #000000 !important;
   }
 
   /* Expander */
@@ -228,8 +266,12 @@ st.markdown("""
     background: #f6f8fa;
     border: 1px solid #d0d7de;
     border-radius: 6px;
-    color: #1a1a2e !important;
+    color: #000000 !important;
     font-weight: 500;
+  }
+  
+  .streamlit-expanderContent {
+    color: #000000 !important;
   }
 
   /* Text inputs */
@@ -238,32 +280,127 @@ st.markdown("""
   .stSelectbox > div > div {
     background: #ffffff !important;
     border: 1px solid #d0d7de !important;
-    color: #1a1a2e !important;
+    color: #000000 !important;
     border-radius: 6px !important;
+  }
+  
+  .stTextInput label,
+  .stNumberInput label,
+  .stSelectbox label {
+    color: #000000 !important;
   }
 
   /* Sliders */
   .stSlider > div > div > div {
     background: #f6f8fa;
   }
-
-  /* General text overrides */
-  .stMarkdown, .stMarkdown p, .stMarkdown li, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4, .stMarkdown h5, .stMarkdown h6 {
-    color: #1a1a2e !important;
+  
+  .stSlider label {
+    color: #000000 !important;
+  }
+  
+  .stSlider [data-testid="stTickBarMin"],
+  .stSlider [data-testid="stTickBarMax"] {
+    color: #000000 !important;
   }
 
-  [data-testid="stSidebar"] .stMarkdown, [data-testid="stSidebar"] .stMarkdown p,
-  [data-testid="stSidebar"] .stMarkdown h1, [data-testid="stSidebar"] .stMarkdown h2,
-  [data-testid="stSidebar"] .stMarkdown h3, [data-testid="stSidebar"] label {
-    color: #1a1a2e !important;
+  /* Radio buttons */
+  .stRadio label {
+    color: #000000 !important;
+  }
+  
+  .stRadio div[role="radiogroup"] label {
+    color: #000000 !important;
+  }
+
+  /* Checkbox */
+  .stCheckbox label {
+    color: #000000 !important;
+  }
+
+  /* General text overrides - FORCE BLACK */
+  .stMarkdown, 
+  .stMarkdown p, 
+  .stMarkdown li, 
+  .stMarkdown h1, 
+  .stMarkdown h2, 
+  .stMarkdown h3, 
+  .stMarkdown h4, 
+  .stMarkdown h5, 
+  .stMarkdown h6,
+  .stMarkdown span,
+  .stMarkdown div,
+  .stMarkdown strong,
+  .stMarkdown em {
+    color: #000000 !important;
+  }
+
+  /* Sidebar specific */
+  [data-testid="stSidebar"] .stMarkdown, 
+  [data-testid="stSidebar"] .stMarkdown p,
+  [data-testid="stSidebar"] .stMarkdown h1, 
+  [data-testid="stSidebar"] .stMarkdown h2,
+  [data-testid="stSidebar"] .stMarkdown h3, 
+  [data-testid="stSidebar"] label,
+  [data-testid="stSidebar"] span,
+  [data-testid="stSidebar"] div {
+    color: #000000 !important;
   }
 
   [data-testid="stSidebar"] [data-testid="stMetricValue"] {
-    color: #1a1a2e !important;
+    color: #000000 !important;
   }
 
   [data-testid="stSidebar"] [data-testid="metric-container"] label {
-    color: #57606a !important;
+    color: #000000 !important;
+  }
+  
+  /* Button captions */
+  .button-caption {
+    font-size: 0.7rem;
+    color: #000000 !important;
+    text-align: center;
+    margin-top: -0.5rem;
+    margin-bottom: 0.5rem;
+    line-height: 1.2;
+  }
+  
+  /* Code elements */
+  code {
+    color: #000000 !important;
+  }
+  
+  pre {
+    color: #000000 !important;
+  }
+  
+  /* Captions */
+  .caption, [data-testid="caption"] {
+    color: #000000 !important;
+  }
+  
+  /* Selectbox options */
+  [data-baseweb="popover"] {
+    color: #000000 !important;
+  }
+  
+  [data-baseweb="menu"] li {
+    color: #000000 !important;
+  }
+  
+  /* Spinner */
+  .stSpinner > div {
+    color: #000000 !important;
+  }
+  
+  /* All text elements */
+  p, span, div, label, h1, h2, h3, h4, h5, h6, li, a, td, th {
+    color: #000000 !important;
+  }
+  
+  /* Override any remaining elements */
+  [class*="st"] {
+    color: #000000 !important;
   }
 </style>
 """, unsafe_allow_html=True)
@@ -567,7 +704,7 @@ def draw_bloch_sphere(title, vec, color='#1f6feb', qubit_idx=0):
         x=[0, 0], y=[0, 0], z=[1.1, -1.1],
         mode='text',
         text=['|0⟩', '|1⟩'],
-        textfont=dict(color='#1a1a2e', size=16, family='IBM Plex Mono'),
+        textfont=dict(color='#000000', size=16, family='IBM Plex Mono'),
         hoverinfo='skip'
     ))
     
@@ -593,7 +730,7 @@ def draw_bloch_sphere(title, vec, color='#1f6feb', qubit_idx=0):
         ))
     
     fig.update_layout(
-        title=dict(text=title, font=dict(size=16, color='#1a1a2e', family='IBM Plex Sans')),
+        title=dict(text=title, font=dict(size=16, color='#000000', family='IBM Plex Sans')),
         scene=dict(
             xaxis=dict(visible=False, range=[-1.5, 1.5]),
             yaxis=dict(visible=False, range=[-1.5, 1.5]),
@@ -646,12 +783,16 @@ def plot_density_matrix(density_matrix, title="Density Matrix"):
     )
     
     fig.update_layout(
-        title=title,
+        title=dict(text=title, font=dict(color='#000000')),
         paper_bgcolor='#ffffff',
         plot_bgcolor='#f6f8fa',
-        font=dict(color='#1a1a2e'),
+        font=dict(color='#000000'),
         height=400
     )
+    
+    # Update subplot titles to black
+    for annotation in fig.layout.annotations:
+        annotation.font.color = '#000000'
     
     return fig
 
@@ -721,23 +862,25 @@ with st.sidebar:
     
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("📋 Copy QASM", use_container_width=True):
+        if st.button("📋 Copy QASM", use_container_width=True, help="Export circuit as OpenQASM code"):
             try:
                 from qiskit import qasm2
                 qasm_str = qasm2.dumps(st.session_state.circuit)
                 st.code(qasm_str, language='text')
             except Exception as e:
                 st.error(f"Error: {e}")
+        st.markdown("<p class='button-caption'>Export to QASM</p>", unsafe_allow_html=True)
     
     with col2:
-        if st.button("🗑️ Clear", use_container_width=True):
+        if st.button("🗑️ Clear", use_container_width=True, help="Clear the entire circuit and start fresh"):
             st.session_state.circuit = QuantumCircuit(st.session_state.num_qubits)
             st.session_state.gate_history = []
             st.session_state.analysis_cache = {}
             st.rerun()
+        st.markdown("<p class='button-caption'>Reset circuit</p>", unsafe_allow_html=True)
     
     circuit_name = st.text_input("Save As", "experiment_1")
-    if st.button("💾 Save Circuit", use_container_width=True):
+    if st.button("💾 Save Circuit", use_container_width=True, help="Save circuit to disk as JSON file"):
         try:
             from qiskit import qasm2
             data = {
@@ -752,6 +895,7 @@ with st.sidebar:
             st.success(f"Saved to {filepath}")
         except Exception as e:
             st.error(f"Save failed: {e}")
+    st.markdown("<p class='button-caption'>Save to file</p>", unsafe_allow_html=True)
 
 # Main content
 tab_build, tab_analyze, tab_tomography, tab_noise, tab_custom = st.tabs([
@@ -780,7 +924,7 @@ with tab_build:
                     'fontsize': 8,           # Stable font size
                     'subfontsize': 7,
                     'linecolor': '#57606a',
-                    'gatetextcolor': '#1a1a2e',
+                    'gatetextcolor': '#000000',
                     'gatefacecolor': '#f6f8fa',
                     'barrierfacecolor': '#d0d7de'
                 },
@@ -837,41 +981,49 @@ with tab_build:
         
         gate_cols = st.columns(4)
         with gate_cols[0]:
-            if st.button("H", use_container_width=True):
+            if st.button("H", use_container_width=True, help="Hadamard gate: creates superposition (|0⟩+|1⟩)/√2"):
                 apply_gate('H', {'qubit': qubit_select})
                 st.rerun()
+            st.markdown("<p class='button-caption'>Hadamard</p>", unsafe_allow_html=True)
         with gate_cols[1]:
-            if st.button("X", use_container_width=True):
+            if st.button("X", use_container_width=True, help="Pauli-X gate: bit flip, quantum NOT gate"):
                 apply_gate('X', {'qubit': qubit_select})
                 st.rerun()
+            st.markdown("<p class='button-caption'>NOT gate</p>", unsafe_allow_html=True)
         with gate_cols[2]:
-            if st.button("Y", use_container_width=True):
+            if st.button("Y", use_container_width=True, help="Pauli-Y gate: bit and phase flip"):
                 apply_gate('Y', {'qubit': qubit_select})
                 st.rerun()
+            st.markdown("<p class='button-caption'>Y flip</p>", unsafe_allow_html=True)
         with gate_cols[3]:
-            if st.button("Z", use_container_width=True):
+            if st.button("Z", use_container_width=True, help="Pauli-Z gate: phase flip, leaves |0⟩, negates |1⟩"):
                 apply_gate('Z', {'qubit': qubit_select})
                 st.rerun()
+            st.markdown("<p class='button-caption'>Phase flip</p>", unsafe_allow_html=True)
         
         gate_cols2 = st.columns(4)
         with gate_cols2[0]:
-            if st.button("S", use_container_width=True):
+            if st.button("S", use_container_width=True, help="S gate: √Z, applies π/2 phase rotation"):
                 apply_gate('S', {'qubit': qubit_select})
                 st.rerun()
+            st.markdown("<p class='button-caption'>√Z gate</p>", unsafe_allow_html=True)
         with gate_cols2[1]:
-            if st.button("T", use_container_width=True):
+            if st.button("T", use_container_width=True, help="T gate: ⁴√Z, applies π/4 phase rotation"):
                 apply_gate('T', {'qubit': qubit_select})
                 st.rerun()
+            st.markdown("<p class='button-caption'>⁴√Z gate</p>", unsafe_allow_html=True)
         with gate_cols2[2]:
-            if st.button("S†", use_container_width=True):
+            if st.button("S†", use_container_width=True, help="S-dagger: inverse of S gate, -π/2 phase"):
                 st.session_state.circuit.sdg(qubit_select)
                 st.session_state.gate_history.append(f"S† q{qubit_select}")
                 st.rerun()
+            st.markdown("<p class='button-caption'>S inverse</p>", unsafe_allow_html=True)
         with gate_cols2[3]:
-            if st.button("T†", use_container_width=True):
+            if st.button("T†", use_container_width=True, help="T-dagger: inverse of T gate, -π/4 phase"):
                 st.session_state.circuit.tdg(qubit_select)
                 st.session_state.gate_history.append(f"T† q{qubit_select}")
                 st.rerun()
+            st.markdown("<p class='button-caption'>T inverse</p>", unsafe_allow_html=True)
     
     with col2:
         st.markdown("**Rotation Gates**")
@@ -880,24 +1032,28 @@ with tab_build:
         rot_axis = st.selectbox("Axis", ["X", "Y", "Z"])
         rot_angle = st.number_input("Angle (radians)", -2*np.pi, 2*np.pi, 0.0, 0.1)
         
-        if st.button(f"Apply R{rot_axis}({rot_angle:.2f})", use_container_width=True):
+        if st.button(f"Apply R{rot_axis}({rot_angle:.2f})", use_container_width=True, help=f"Rotate qubit by {rot_angle:.2f} radians around {rot_axis}-axis"):
             apply_gate(f'R{rot_axis}', {'qubit': rot_qubit, 'angle': rot_angle})
             st.rerun()
+        st.markdown("<p class='button-caption'>Custom rotation</p>", unsafe_allow_html=True)
         
         st.markdown("**Quick Angles**")
         quick_cols = st.columns(3)
         with quick_cols[0]:
-            if st.button("π/4", key="pi4"):
+            if st.button("π/4", key="pi4", help="Quick rotation: 45 degrees"):
                 apply_gate(f'R{rot_axis}', {'qubit': rot_qubit, 'angle': np.pi/4})
                 st.rerun()
+            st.markdown("<p class='button-caption'>45°</p>", unsafe_allow_html=True)
         with quick_cols[1]:
-            if st.button("π/2", key="pi2"):
+            if st.button("π/2", key="pi2", help="Quick rotation: 90 degrees"):
                 apply_gate(f'R{rot_axis}', {'qubit': rot_qubit, 'angle': np.pi/2})
                 st.rerun()
+            st.markdown("<p class='button-caption'>90°</p>", unsafe_allow_html=True)
         with quick_cols[2]:
-            if st.button("π", key="pi"):
+            if st.button("π", key="pi", help="Quick rotation: 180 degrees"):
                 apply_gate(f'R{rot_axis}', {'qubit': rot_qubit, 'angle': np.pi})
                 st.rerun()
+            st.markdown("<p class='button-caption'>180°</p>", unsafe_allow_html=True)
     
     with col3:
         st.markdown("**Multi-Qubit Gates**")
@@ -911,37 +1067,42 @@ with tab_build:
             else:
                 gate_cols3 = st.columns(3)
                 with gate_cols3[0]:
-                    if st.button("CNOT", use_container_width=True):
+                    if st.button("CNOT", use_container_width=True, help="Controlled-NOT: flips target if control is |1⟩, creates entanglement"):
                         apply_gate('CNOT', {'control': control_q, 'target': target_q})
                         st.rerun()
+                    st.markdown("<p class='button-caption'>Entangle</p>", unsafe_allow_html=True)
                 with gate_cols3[1]:
-                    if st.button("CZ", use_container_width=True):
+                    if st.button("CZ", use_container_width=True, help="Controlled-Z: applies Z to target if control is |1⟩"):
                         apply_gate('CZ', {'control': control_q, 'target': target_q})
                         st.rerun()
+                    st.markdown("<p class='button-caption'>C-Phase</p>", unsafe_allow_html=True)
                 with gate_cols3[2]:
-                    if st.button("SWAP", use_container_width=True):
+                    if st.button("SWAP", use_container_width=True, help="SWAP: exchanges quantum states of two qubits"):
                         apply_gate('SWAP', {'control': control_q, 'target': target_q})
                         st.rerun()
+                    st.markdown("<p class='button-caption'>Exchange</p>", unsafe_allow_html=True)
                 
                 if st.session_state.num_qubits >= 3:
                     st.markdown("**Toffoli (CCX)**")
                     control2_q = st.selectbox("Control 2", range(st.session_state.num_qubits), key="control2")
                     
                     if len({control_q, control2_q, target_q}) == 3:
-                        if st.button("Apply Toffoli", use_container_width=True):
+                        if st.button("Apply Toffoli", use_container_width=True, help="Toffoli/CCX: flips target only if both controls are |1⟩"):
                             apply_gate('Toffoli', {
                                 'control1': control_q,
                                 'control2': control2_q,
                                 'target': target_q
                             })
                             st.rerun()
+                        st.markdown("<p class='button-caption'>Double-controlled NOT</p>", unsafe_allow_html=True)
         else:
             st.info("Need ≥2 qubits for multi-qubit gates")
         
         st.markdown("**Utilities**")
-        if st.button("Add Barrier", use_container_width=True):
+        if st.button("Add Barrier", use_container_width=True, help="Barrier: visual separator, prevents gate reordering in optimization"):
             apply_gate('BARRIER', {})
             st.rerun()
+        st.markdown("<p class='button-caption'>Visual separator</p>", unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════════
 # STATE ANALYSIS TAB
@@ -1029,7 +1190,8 @@ with tab_analyze:
                         y=list(probs.values()),
                         marker_color='#1f6feb',
                         text=[f"{v*100:.1f}%" for v in probs.values()],
-                        textposition='auto'
+                        textposition='auto',
+                        textfont=dict(color='#000000')
                     )
                 ])
                 
@@ -1039,7 +1201,7 @@ with tab_analyze:
                     yaxis_title="Probability",
                     paper_bgcolor='#ffffff',
                     plot_bgcolor='#f6f8fa',
-                    font=dict(color='#1a1a2e'),
+                    font=dict(color='#000000'),
                     height=300
                 )
                 
@@ -1090,7 +1252,7 @@ with tab_tomography:
             # Create measurement circuits for all Pauli combinations
             paulis = ['I', 'X', 'Y', 'Z']
             
-            if st.button("🔬 Run Full Tomography", use_container_width=True):
+            if st.button("🔬 Run Full Tomography", use_container_width=True, help="Measure in all Pauli bases to reconstruct the full quantum state"):
                 with st.spinner("Performing quantum state tomography..."):
                     # Simulate measurements
                     simulator = AerSimulator()
@@ -1134,7 +1296,10 @@ with tab_tomography:
                                 go.Bar(
                                     x=list(counts.keys()),
                                     y=list(counts.values()),
-                                    marker_color='#1f6feb'
+                                    marker_color='#1f6feb',
+                                    text=list(counts.values()),
+                                    textposition='auto',
+                                    textfont=dict(color='#000000')
                                 )
                             ])
                             
@@ -1144,21 +1309,23 @@ with tab_tomography:
                                 yaxis_title="Counts",
                                 paper_bgcolor='#ffffff',
                                 plot_bgcolor='#f6f8fa',
-                                font=dict(color='#1a1a2e'),
+                                font=dict(color='#000000'),
                                 height=300
                             )
                             
                             st.plotly_chart(fig, use_container_width=True)
                             st.json(counts)
+            st.markdown("<p class='button-caption'>Reconstruct full state</p>", unsafe_allow_html=True)
         else:
             st.warning("Full tomography requires exponential resources for >2 qubits. Use selective measurements.")
             
             st.markdown("#### Single-Qubit Tomography")
             qubit_tomo = st.selectbox("Select qubit for tomography", range(st.session_state.num_qubits))
             
-            if st.button("Run Single-Qubit Tomography"):
+            if st.button("Run Single-Qubit Tomography", help="Reconstruct the state of one qubit by measuring in X, Y, Z bases"):
                 # Similar to above but for single qubit
                 st.info("Single-qubit tomography reconstruction in progress...")
+            st.markdown("<p class='button-caption'>Reconstruct one qubit</p>", unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════════
 # NOISE SIMULATION TAB
@@ -1184,7 +1351,7 @@ with tab_noise:
         
         num_shots_noise = st.slider("Measurement Shots", 100, 10000, 1000, 100)
         
-        if st.button("🌊 Run Noisy Simulation", use_container_width=True):
+        if st.button("🌊 Run Noisy Simulation", use_container_width=True, help="Simulate circuit with realistic quantum hardware noise model"):
             with st.spinner("Simulating with noise model..."):
                 try:
                     # Create noise model
@@ -1221,13 +1388,16 @@ with tab_noise:
                                 x=list(ideal_counts.keys()),
                                 y=list(ideal_counts.values()),
                                 marker_color='#1f6feb',
-                                name='Ideal'
+                                name='Ideal',
+                                text=list(ideal_counts.values()),
+                                textposition='auto',
+                                textfont=dict(color='#000000')
                             )
                         ])
                         fig_ideal.update_layout(
                             paper_bgcolor='#ffffff',
                             plot_bgcolor='#f6f8fa',
-                            font=dict(color='#1a1a2e'),
+                            font=dict(color='#000000'),
                             height=400
                         )
                         st.plotly_chart(fig_ideal, use_container_width=True)
@@ -1239,13 +1409,16 @@ with tab_noise:
                                 x=list(noisy_counts.keys()),
                                 y=list(noisy_counts.values()),
                                 marker_color='#f85149',
-                                name='Noisy'
+                                name='Noisy',
+                                text=list(noisy_counts.values()),
+                                textposition='auto',
+                                textfont=dict(color='#000000')
                             )
                         ])
                         fig_noisy.update_layout(
                             paper_bgcolor='#ffffff',
                             plot_bgcolor='#f6f8fa',
-                            font=dict(color='#1a1a2e'),
+                            font=dict(color='#000000'),
                             height=400
                         )
                         st.plotly_chart(fig_noisy, use_container_width=True)
@@ -1278,6 +1451,7 @@ with tab_noise:
                 
                 except Exception as e:
                     st.error(f"Simulation error: {e}")
+        st.markdown("<p class='button-caption'>Compare ideal vs noisy</p>", unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════════
 # CUSTOM GATES TAB
@@ -1328,7 +1502,7 @@ with tab_custom:
         gate_label = st.text_input("Gate Label", "U_custom")
         target_qubit_custom = st.selectbox("Apply to qubit", range(st.session_state.num_qubits), key="custom_q")
         
-        if st.button("Apply Custom Gate") and is_unitary:
+        if st.button("Apply Custom Gate", help="Add this custom unitary gate to the circuit") and is_unitary:
             success, msg = apply_gate('CUSTOM', {
                 'unitary': U_custom,
                 'qubits': [target_qubit_custom],
@@ -1339,6 +1513,7 @@ with tab_custom:
                 st.rerun()
             else:
                 st.error(msg)
+        st.markdown("<p class='button-caption'>Apply custom unitary</p>", unsafe_allow_html=True)
     
     elif gate_method == "Parameterized Rotation":
         st.markdown("#### Arbitrary Axis Rotation")
@@ -1370,7 +1545,7 @@ with tab_custom:
             st.markdown("**Unitary Matrix:**")
             st.code(str(U_rot))
             
-            if st.button("Apply Rotation"):
+            if st.button("Apply Rotation", help="Apply rotation around custom axis to circuit"):
                 success, msg = apply_gate('CUSTOM', {
                     'unitary': U_rot,
                     'qubits': [target_q_rot],
@@ -1381,6 +1556,7 @@ with tab_custom:
                     st.rerun()
                 else:
                     st.error(msg)
+            st.markdown("<p class='button-caption'>Rotate around axis</p>", unsafe_allow_html=True)
         else:
             st.warning("Define a non-zero rotation axis")
     
@@ -1404,7 +1580,7 @@ with tab_custom:
         st.markdown("**Resulting Unitary:**")
         st.code(str(U_decomp))
         
-        if st.button("Apply Decomposed Gate"):
+        if st.button("Apply Decomposed Gate", help="Apply universal gate decomposition Rz(α)Ry(β)Rz(γ)"):
             success, msg = apply_gate('CUSTOM', {
                 'unitary': U_decomp,
                 'qubits': [target_q_decomp],
@@ -1415,15 +1591,16 @@ with tab_custom:
                 st.rerun()
             else:
                 st.error(msg)
+        st.markdown("<p class='button-caption'>Universal decomposition</p>", unsafe_allow_html=True)
 
 # Footer
 st.markdown("---")
 st.markdown("""
-<div style='text-align: center; color: #57606a; padding: 1.5rem 0;'>
-    <p style='margin: 0; font-size: 0.875rem;'>
+<div style='text-align: center; color: #000000; padding: 1.5rem 0;'>
+    <p style='margin: 0; font-size: 0.875rem; color: #000000;'>
         QuantumLab Research Platform | Built with Qiskit & Streamlit
     </p>
-    <p style='margin: 0.5rem 0 0 0; font-size: 0.8rem;'>
+    <p style='margin: 0.5rem 0 0 0; font-size: 0.8rem; color: #000000;'>
         Advanced quantum circuit simulation for research and development
     </p>
 </div>
