@@ -721,7 +721,7 @@ with st.sidebar:
     
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("📋 Copy QASM", width=" stretch\):
+        if st.button("📋 Copy QASM", use_container_width=True):
             try:
                 from qiskit import qasm2
                 qasm_str = qasm2.dumps(st.session_state.circuit)
@@ -730,14 +730,14 @@ with st.sidebar:
                 st.error(f"Error: {e}")
     
     with col2:
-        if st.button("🗑️ Clear", width=" stretch\):
+        if st.button("🗑️ Clear", use_container_width=True):
             st.session_state.circuit = QuantumCircuit(st.session_state.num_qubits)
             st.session_state.gate_history = []
             st.session_state.analysis_cache = {}
             st.rerun()
     
     circuit_name = st.text_input("Save As", "experiment_1")
-    if st.button("💾 Save Circuit", width=" stretch\):
+    if st.button("💾 Save Circuit", use_container_width=True):
         try:
             from qiskit import qasm2
             data = {
@@ -821,7 +821,7 @@ with tab_build:
                         fig_live = draw_bloch_sphere(f"Q{i}", b_vec, qubit_idx=i)
                         # More compact for preview
                         fig_live.update_layout(height=300, margin=dict(l=0, r=0, t=30, b=0))
-                        st.plotly_chart(fig_live, width=" stretch\, key=f"bloch_live_{i}")
+                        st.plotly_chart(fig_live, use_container_width=True, key=f"bloch_live_{i}")
             except Exception as e:
                 st.error(f"Live preview error: {e}")
     
@@ -837,38 +837,38 @@ with tab_build:
         
         gate_cols = st.columns(4)
         with gate_cols[0]:
-            if st.button("H", width=" stretch\):
+            if st.button("H", use_container_width=True):
                 apply_gate('H', {'qubit': qubit_select})
                 st.rerun()
         with gate_cols[1]:
-            if st.button("X", width=" stretch\):
+            if st.button("X", use_container_width=True):
                 apply_gate('X', {'qubit': qubit_select})
                 st.rerun()
         with gate_cols[2]:
-            if st.button("Y", width=" stretch\):
+            if st.button("Y", use_container_width=True):
                 apply_gate('Y', {'qubit': qubit_select})
                 st.rerun()
         with gate_cols[3]:
-            if st.button("Z", width=" stretch\):
+            if st.button("Z", use_container_width=True):
                 apply_gate('Z', {'qubit': qubit_select})
                 st.rerun()
         
         gate_cols2 = st.columns(4)
         with gate_cols2[0]:
-            if st.button("S", width=" stretch\):
+            if st.button("S", use_container_width=True):
                 apply_gate('S', {'qubit': qubit_select})
                 st.rerun()
         with gate_cols2[1]:
-            if st.button("T", width=" stretch\):
+            if st.button("T", use_container_width=True):
                 apply_gate('T', {'qubit': qubit_select})
                 st.rerun()
         with gate_cols2[2]:
-            if st.button("S†", width=" stretch\):
+            if st.button("S†", use_container_width=True):
                 st.session_state.circuit.sdg(qubit_select)
                 st.session_state.gate_history.append(f"S† q{qubit_select}")
                 st.rerun()
         with gate_cols2[3]:
-            if st.button("T†", width=" stretch\):
+            if st.button("T†", use_container_width=True):
                 st.session_state.circuit.tdg(qubit_select)
                 st.session_state.gate_history.append(f"T† q{qubit_select}")
                 st.rerun()
@@ -880,7 +880,7 @@ with tab_build:
         rot_axis = st.selectbox("Axis", ["X", "Y", "Z"])
         rot_angle = st.number_input("Angle (radians)", -2*np.pi, 2*np.pi, 0.0, 0.1)
         
-        if st.button(f"Apply R{rot_axis}({rot_angle:.2f})", width=" stretch\):
+        if st.button(f"Apply R{rot_axis}({rot_angle:.2f})", use_container_width=True):
             apply_gate(f'R{rot_axis}', {'qubit': rot_qubit, 'angle': rot_angle})
             st.rerun()
         
@@ -911,15 +911,15 @@ with tab_build:
             else:
                 gate_cols3 = st.columns(3)
                 with gate_cols3[0]:
-                    if st.button("CNOT", width=" stretch\):
+                    if st.button("CNOT", use_container_width=True):
                         apply_gate('CNOT', {'control': control_q, 'target': target_q})
                         st.rerun()
                 with gate_cols3[1]:
-                    if st.button("CZ", width=" stretch\):
+                    if st.button("CZ", use_container_width=True):
                         apply_gate('CZ', {'control': control_q, 'target': target_q})
                         st.rerun()
                 with gate_cols3[2]:
-                    if st.button("SWAP", width=" stretch\):
+                    if st.button("SWAP", use_container_width=True):
                         apply_gate('SWAP', {'control': control_q, 'target': target_q})
                         st.rerun()
                 
@@ -928,7 +928,7 @@ with tab_build:
                     control2_q = st.selectbox("Control 2", range(st.session_state.num_qubits), key="control2")
                     
                     if len({control_q, control2_q, target_q}) == 3:
-                        if st.button("Apply Toffoli", width=" stretch\):
+                        if st.button("Apply Toffoli", use_container_width=True):
                             apply_gate('Toffoli', {
                                 'control1': control_q,
                                 'control2': control2_q,
@@ -939,7 +939,7 @@ with tab_build:
             st.info("Need ≥2 qubits for multi-qubit gates")
         
         st.markdown("**Utilities**")
-        if st.button("Add Barrier", width=" stretch\):
+        if st.button("Add Barrier", use_container_width=True):
             apply_gate('BARRIER', {})
             st.rerun()
 
@@ -980,7 +980,7 @@ with tab_analyze:
                         
                         bloch_vec = analyzer.density_matrix_to_bloch(rho_i)
                         fig = draw_bloch_sphere(f"Qubit {i} State", bloch_vec, qubit_idx=i)
-                        st.plotly_chart(fig, width=" stretch\, key=f"bloch_analyze_{i}")
+                        st.plotly_chart(fig, use_container_width=True, key=f"bloch_analyze_{i}")
                 
                 if st.session_state.num_qubits > 4:
                     st.warning("Showing first 4 qubits. Additional qubits omitted from Bloch display.")
@@ -1020,7 +1020,7 @@ with tab_analyze:
                     'Percentage': [f"{v*100:.2f}%" for v in probs.values()]
                 })
                 
-                st.dataframe(prob_df, width=" stretch\, hide_index=True)
+                st.dataframe(prob_df, use_container_width=True, hide_index=True)
                 
                 # Plot probabilities
                 fig = go.Figure(data=[
@@ -1043,7 +1043,7 @@ with tab_analyze:
                     height=300
                 )
                 
-                st.plotly_chart(fig, width=" stretch\)
+                st.plotly_chart(fig, use_container_width=True)
             
             # Density matrix visualization
             st.markdown("---")
@@ -1051,20 +1051,20 @@ with tab_analyze:
             
             if st.session_state.num_qubits <= 4:
                 fig = plot_density_matrix(dm.data, "Full Density Matrix")
-                st.plotly_chart(fig, width=" stretch\)
+                st.plotly_chart(fig, use_container_width=True)
                 
                 # Show numerical values
                 with st.expander("View Density Matrix Values"):
                     st.write("**Real Part:**")
-                    st.dataframe(pd.DataFrame(np.real(dm.data)), width=" stretch\)
+                    st.dataframe(pd.DataFrame(np.real(dm.data)), use_container_width=True)
                     st.write("**Imaginary Part:**")
-                    st.dataframe(pd.DataFrame(np.imag(dm.data)), width=" stretch\)
+                    st.dataframe(pd.DataFrame(np.imag(dm.data)), use_container_width=True)
             else:
                 st.warning("Density matrix too large to display (>4 qubits). Showing reduced state of first 2 qubits.")
                 trace_qubits = list(range(2, st.session_state.num_qubits))
                 reduced_dm = partial_trace(sv, trace_qubits).data
                 fig = plot_density_matrix(reduced_dm, "Reduced Density Matrix (Qubits 0-1)")
-                st.plotly_chart(fig, width=" stretch\)
+                st.plotly_chart(fig, use_container_width=True)
         
         except Exception as e:
             st.error(f"Analysis error: {e}")
@@ -1090,7 +1090,7 @@ with tab_tomography:
             # Create measurement circuits for all Pauli combinations
             paulis = ['I', 'X', 'Y', 'Z']
             
-            if st.button("🔬 Run Full Tomography", width=" stretch\):
+            if st.button("🔬 Run Full Tomography", use_container_width=True):
                 with st.spinner("Performing quantum state tomography..."):
                     # Simulate measurements
                     simulator = AerSimulator()
@@ -1148,7 +1148,7 @@ with tab_tomography:
                                 height=300
                             )
                             
-                            st.plotly_chart(fig, width=" stretch\)
+                            st.plotly_chart(fig, use_container_width=True)
                             st.json(counts)
         else:
             st.warning("Full tomography requires exponential resources for >2 qubits. Use selective measurements.")
@@ -1184,7 +1184,7 @@ with tab_noise:
         
         num_shots_noise = st.slider("Measurement Shots", 100, 10000, 1000, 100)
         
-        if st.button("🌊 Run Noisy Simulation", width=" stretch\):
+        if st.button("🌊 Run Noisy Simulation", use_container_width=True):
             with st.spinner("Simulating with noise model..."):
                 try:
                     # Create noise model
@@ -1230,7 +1230,7 @@ with tab_noise:
                             font=dict(color='#1a1a2e'),
                             height=400
                         )
-                        st.plotly_chart(fig_ideal, width=" stretch\)
+                        st.plotly_chart(fig_ideal, use_container_width=True)
                     
                     with col2:
                         st.markdown("#### Noisy (Realistic)")
@@ -1248,7 +1248,7 @@ with tab_noise:
                             font=dict(color='#1a1a2e'),
                             height=400
                         )
-                        st.plotly_chart(fig_noisy, width=" stretch\)
+                        st.plotly_chart(fig_noisy, use_container_width=True)
                     
                     # Fidelity calculation
                     st.markdown("---")
