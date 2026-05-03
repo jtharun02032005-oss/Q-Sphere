@@ -716,7 +716,7 @@ with st.sidebar:
     
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("📋 Copy QASM", use_container_width=True):
+        if st.button("📋 Copy QASM", width=" stretch\):
             try:
                 from qiskit import qasm2
                 qasm_str = qasm2.dumps(st.session_state.circuit)
@@ -725,7 +725,7 @@ with st.sidebar:
                 st.error(f"Error: {e}")
     
     with col2:
-        if st.button("🗑️ Clear", use_container_width=True):
+        if st.button("🗑️ Clear", width=" stretch\):
             st.session_state.circuit = QuantumCircuit(st.session_state.num_qubits)
             st.session_state.gate_history = []
             st.session_state.analysis_cache = {}
@@ -771,39 +771,39 @@ with tab_build:
         
         gate_cols = st.columns(4)
         with gate_cols[0]:
-            if st.button("H", use_container_width=True):
+            if st.button("H", width=" stretch\):
                 apply_gate('H', {'qubit': qubit_select})
                 st.rerun()
         with gate_cols[1]:
-            if st.button("X", use_container_width=True):
+            if st.button("X", width=" stretch\):
                 apply_gate('X', {'qubit': qubit_select})
                 st.rerun()
         with gate_cols[2]:
-            if st.button("Y", use_container_width=True):
+            if st.button("Y", width=" stretch\):
                 apply_gate('Y', {'qubit': qubit_select})
                 st.rerun()
         with gate_cols[3]:
-            if st.button("Z", use_container_width=True):
+            if st.button("Z", width=" stretch\):
                 apply_gate('Z', {'qubit': qubit_select})
                 st.rerun()
         
         gate_cols2 = st.columns(4)
         with gate_cols2[0]:
-            if st.button("S", use_container_width=True):
+            if st.button("S", width=" stretch\):
                 apply_gate('S', {'qubit': qubit_select})
                 st.rerun()
         with gate_cols2[1]:
-            if st.button("T", use_container_width=True):
+            if st.button("T", width=" stretch\):
                 apply_gate('T', {'qubit': qubit_select})
                 st.rerun()
         with gate_cols2[2]:
-            if st.button("S†", use_container_width=True):
+            if st.button("S†", width=" stretch\):
                 st.session_state.circuit.sdg(qubit_select)
                 st.session_state.gate_history.append(f"S† q{qubit_select}")
                 record_state_snapshot()
                 st.rerun()
         with gate_cols2[3]:
-            if st.button("T†", use_container_width=True):
+            if st.button("T†", width=" stretch\):
                 st.session_state.circuit.tdg(qubit_select)
                 st.session_state.gate_history.append(f"T† q{qubit_select}")
                 record_state_snapshot()
@@ -816,7 +816,7 @@ with tab_build:
         rot_axis = st.selectbox("Axis", ["X", "Y", "Z"])
         rot_angle = st.number_input("Angle (radians)", -2*np.pi, 2*np.pi, 0.0, 0.1)
         
-        if st.button(f"Apply R{rot_axis}({rot_angle:.2f})", use_container_width=True):
+        if st.button(f"Apply R{rot_axis}({rot_angle:.2f})", width=" stretch\):
             apply_gate(f'R{rot_axis}', {'qubit': rot_qubit, 'angle': rot_angle})
             st.rerun()
         
@@ -847,15 +847,15 @@ with tab_build:
             else:
                 gate_cols3 = st.columns(3)
                 with gate_cols3[0]:
-                    if st.button("CNOT", use_container_width=True):
+                    if st.button("CNOT", width=" stretch\):
                         apply_gate('CNOT', {'control': control_q, 'target': target_q})
                         st.rerun()
                 with gate_cols3[1]:
-                    if st.button("CZ", use_container_width=True):
+                    if st.button("CZ", width=" stretch\):
                         apply_gate('CZ', {'control': control_q, 'target': target_q})
                         st.rerun()
                 with gate_cols3[2]:
-                    if st.button("SWAP", use_container_width=True):
+                    if st.button("SWAP", width=" stretch\):
                         apply_gate('SWAP', {'control': control_q, 'target': target_q})
                         st.rerun()
         else:
@@ -937,7 +937,7 @@ with tab_animate:
                 height=400
             )
             
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width=" stretch\)
         
         with col2:
             st.markdown("#### State Vector Amplitudes")
@@ -964,7 +964,7 @@ with tab_animate:
                 height=400
             )
             
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width=" stretch\)
         
         # Bloch sphere animation for small systems
         if 'bloch_vectors' in current_state and st.session_state.num_qubits <= 3:
@@ -977,7 +977,7 @@ with tab_animate:
                 with col:
                     vec = current_state['bloch_vectors'][i]
                     fig = draw_bloch_sphere(f"Qubit {i}", vec)
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, width=" stretch\)
         
         # Evolution trajectory
         if len(st.session_state.state_history) > 1 and st.session_state.num_qubits <= 2:
@@ -1022,7 +1022,7 @@ with tab_animate:
                 hovermode='x unified'
             )
             
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width=" stretch\)
 
 # ═══════════════════════════════════════════════════════════════════════════
 # STATE ANALYSIS TAB
@@ -1058,7 +1058,7 @@ with tab_analyze:
                         
                         bloch_vec = analyzer.density_matrix_to_bloch(rho_i)
                         fig = draw_bloch_sphere(f"Qubit {i}", bloch_vec)
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, width=" stretch\)
                 else:
                     st.warning("Too many qubits for full Bloch sphere display. Showing first 3.")
                     for i in range(3):
@@ -1066,7 +1066,7 @@ with tab_analyze:
                         rho_i = partial_trace(sv, trace_qubits).data
                         bloch_vec = analyzer.density_matrix_to_bloch(rho_i)
                         fig = draw_bloch_sphere(f"Qubit {i}", bloch_vec)
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, width=" stretch\)
             
             with col2:
                 st.markdown("#### Quantum Metrics")
@@ -1103,7 +1103,7 @@ with tab_analyze:
                     'Percentage': [f"{v*100:.2f}%" for v in probs.values()]
                 })
                 
-                st.dataframe(prob_df, use_container_width=True, hide_index=True)
+                st.dataframe(prob_df, width=" stretch\, hide_index=True)
                 
                 # Plot probabilities
                 fig = go.Figure(data=[
@@ -1126,7 +1126,7 @@ with tab_analyze:
                     height=300
                 )
                 
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width=" stretch\)
         
         except Exception as e:
             st.error(f"Analysis error: {e}")
@@ -1152,7 +1152,7 @@ with tab_multi:
             cnot_tgt = st.selectbox("Target qubit", range(st.session_state.num_qubits), key="cnot_tgt")
             
             if cnot_ctrl != cnot_tgt:
-                if st.button("Apply CNOT", use_container_width=True):
+                if st.button("Apply CNOT", width=" stretch\):
                     apply_gate('CNOT', {'control': cnot_ctrl, 'target': cnot_tgt})
                     st.rerun()
             else:
@@ -1167,7 +1167,7 @@ with tab_multi:
             cz_tgt = st.selectbox("Target qubit", range(st.session_state.num_qubits), key="cz_tgt")
             
             if cz_ctrl != cz_tgt:
-                if st.button("Apply CZ", use_container_width=True):
+                if st.button("Apply CZ", width=" stretch\):
                     apply_gate('CZ', {'control': cz_ctrl, 'target': cz_tgt})
                     st.rerun()
             else:
@@ -1181,7 +1181,7 @@ with tab_multi:
             swap_q2 = st.selectbox("Qubit 2", range(st.session_state.num_qubits), key="swap_q2")
             
             if swap_q1 != swap_q2:
-                if st.button("Apply SWAP", use_container_width=True):
+                if st.button("Apply SWAP", width=" stretch\):
                     apply_gate('SWAP', {'control': swap_q1, 'target': swap_q2})
                     st.rerun()
             else:
@@ -1197,7 +1197,7 @@ with tab_multi:
             crot_angle = st.number_input("Angle (rad)", -np.pi, np.pi, 0.0, 0.1, key="crot_angle")
             
             if crot_ctrl != crot_tgt:
-                if st.button(f"Apply CR{crot_axis}", use_container_width=True):
+                if st.button(f"Apply CR{crot_axis}", width=" stretch\):
                     if crot_axis == "X":
                         st.session_state.circuit.crx(crot_angle, crot_ctrl, crot_tgt)
                     elif crot_axis == "Y":
@@ -1227,7 +1227,7 @@ with tab_multi:
                 tof_tgt = st.selectbox("Target", range(st.session_state.num_qubits), key="tof_tgt")
                 
                 if len({tof_c1, tof_c2, tof_tgt}) == 3:
-                    if st.button("Apply Toffoli", use_container_width=True):
+                    if st.button("Apply Toffoli", width=" stretch\):
                         apply_gate('Toffoli', {
                             'control1': tof_c1,
                             'control2': tof_c2,
@@ -1246,7 +1246,7 @@ with tab_multi:
                 frd_t2 = st.selectbox("Target 2", range(st.session_state.num_qubits), key="frd_t2")
                 
                 if len({frd_ctrl, frd_t1, frd_t2}) == 3:
-                    if st.button("Apply Fredkin", use_container_width=True):
+                    if st.button("Apply Fredkin", width=" stretch\):
                         st.session_state.circuit.cswap(frd_ctrl, frd_t1, frd_t2)
                         st.session_state.gate_history.append(
                             f"CSWAP q{frd_ctrl}: q{frd_t1}↔q{frd_t2}"
@@ -1263,7 +1263,7 @@ with tab_multi:
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            if st.button("Bell State |Φ+⟩", use_container_width=True):
+            if st.button("Bell State |Φ+⟩", width=" stretch\):
                 if st.session_state.num_qubits >= 2:
                     st.session_state.circuit.h(0)
                     st.session_state.circuit.cx(0, 1)
@@ -1272,7 +1272,7 @@ with tab_multi:
                     st.rerun()
         
         with col2:
-            if st.button("GHZ State", use_container_width=True):
+            if st.button("GHZ State", width=" stretch\):
                 if st.session_state.num_qubits >= 3:
                     st.session_state.circuit.h(0)
                     for i in range(1, min(st.session_state.num_qubits, 3)):
@@ -1282,7 +1282,7 @@ with tab_multi:
                     st.rerun()
         
         with col3:
-            if st.button("W State", use_container_width=True):
+            if st.button("W State", width=" stretch\):
                 if st.session_state.num_qubits >= 3:
                     # W state for 3 qubits
                     theta1 = np.arccos(np.sqrt(1/3))
