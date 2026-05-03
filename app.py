@@ -356,11 +356,19 @@ class QuantumStateAnalyzer:
     
     @staticmethod
     def density_matrix_to_bloch(rho):
-        """Convert density matrix to Bloch vector."""
+        """Convert density matrix to Bloch vector with improved precision."""
+        # Ensure rho is a numpy array
+        rho = np.array(rho)
         x = 2 * np.real(rho[0, 1])
         y = -2 * np.imag(rho[0, 1])
         z = np.real(rho[0, 0] - rho[1, 1])
-        return np.array([x, y, z], dtype=float)
+        
+        # Clip to unit sphere to handle numerical noise
+        vec = np.array([x, y, z], dtype=float)
+        norm = np.linalg.norm(vec)
+        if norm > 1.0:
+            vec = vec / norm
+        return vec
 
 class CustomGateBuilder:
     """Build custom quantum gates."""
@@ -498,10 +506,10 @@ def apply_gate(gate_type, params):
 # VISUALIZATION FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════════
 
-def draw_bloch_sphere(title, vec, color='#1f6feb'):
-    """Draw Bloch sphere with research-grade styling."""
-    u = np.linspace(0, 2 * np.pi, 30)
-    v = np.linspace(0, np.pi, 20)
+def draw_bloch_sphere(title, vec, color='#1f6feb', qubit_idx=0):
+    """Draw Bloch sphere with research-grade styling and clear axis labeling."""
+    u = np.linspace(0, 2 * np.pi, 40)
+    v = np.linspace(0, np.pi, 30)
     x_sphere = np.outer(np.cos(u), np.sin(v))
     y_sphere = np.outer(np.sin(u), np.sin(v))
     z_sphere = np.outer(np.ones_like(u), np.cos(v))
@@ -511,61 +519,96 @@ def draw_bloch_sphere(title, vec, color='#1f6feb'):
     # Sphere surface
     fig.add_trace(go.Surface(
         x=x_sphere, y=y_sphere, z=z_sphere,
-        colorscale=[[0, color], [1, color]],
+        colorscale=[[0, '#f8f9fa'], [1, '#f8f9fa']],
         showscale=False,
-        opacity=0.1,
-        hoverinfo='skip'
+        opacity=0.15,
+        hoverinfo='skip',
+        contours=dict(
+            x=dict(show=True, color='#d0d7de', width=1, usecolormap=False),
+            y=dict(show=True, color='#d0d7de', width=1, usecolormap=False),
+            z=dict(show=True, color='#d0d7de', width=1, usecolormap=False)
+        )
     ))
     
     # Axes
-    axis_length = 1.2
+    axis_length = 1.3
+    # X-axis (Red)
     fig.add_trace(go.Scatter3d(
         x=[-axis_length, axis_length], y=[0, 0], z=[0, 0],
-        mode='lines', line=dict(color='#f85149', width=3),
-        hoverinfo='skip', showlegend=False
+        mode='lines', line=dict(color='#f85149', width=4),
+        hoverinfo='skip', name='X-axis'
     ))
+    # Y-axis (Green)
     fig.add_trace(go.Scatter3d(
         x=[0, 0], y=[-axis_length, axis_length], z=[0, 0],
-        mode='lines', line=dict(color='#3fb950', width=3),
-        hoverinfo='skip', showlegend=False
+        mode='lines', line=dict(color='#3fb950', width=4),
+        hoverinfo='skip', name='Y-axis'
     ))
+    # Z-axis (Blue)
     fig.add_trace(go.Scatter3d(
         x=[0, 0], y=[0, 0], z=[-axis_length, axis_length],
-        mode='lines', line=dict(color='#58a6ff', width=4),
-        hoverinfo='skip', showlegend=False
+        mode='lines', line=dict(color='#58a6ff', width=5),
+        hoverinfo='skip', name='Z-axis'
+    ))
+    
+    # Axis Labels
+    fig.add_trace(go.Scatter3d(
+        x=[axis_length+0.1, 0, 0],
+        y=[0, axis_length+0.1, 0],
+        z=[0, 0, axis_length+0.1],
+        mode='text',
+        text=['X', 'Y', 'Z'],
+        textfont=dict(color=['#f85149', '#3fb950', '#58a6ff'], size=14, family='IBM Plex Mono'),
+        hoverinfo='skip'
+    ))
+    
+    # Pole Labels
+    fig.add_trace(go.Scatter3d(
+        x=[0, 0], y=[0, 0], z=[1.1, -1.1],
+        mode='text',
+        text=['|0⟩', '|1⟩'],
+        textfont=dict(color='#1a1a2e', size=16, family='IBM Plex Mono'),
+        hoverinfo='skip'
     ))
     
     # State vector
-    if np.linalg.norm(vec) > 1e-6:
+    vec_norm = np.linalg.norm(vec)
+    if vec_norm > 1e-6:
+        # Line from origin
         fig.add_trace(go.Scatter3d(
             x=[0, vec[0]], y=[0, vec[1]], z=[0, vec[2]],
-            mode='lines', line=dict(color=color, width=8),
+            mode='lines', line=dict(color=color, width=10),
             hoverinfo='text',
-            hovertext=f'State<br>x:{vec[0]:.3f}<br>y:{vec[1]:.3f}<br>z:{vec[2]:.3f}',
-            showlegend=False
+            hovertext=f'Qubit {qubit_idx}<br>x:{vec[0]:.3f}<br>y:{vec[1]:.3f}<br>z:{vec[2]:.3f}<br>Purity:{vec_norm:.3f}',
+            name='State Vector'
         ))
         
+        # Arrow tip
         fig.add_trace(go.Cone(
             x=[vec[0]], y=[vec[1]], z=[vec[2]],
-            u=[vec[0]*0.3], v=[vec[1]*0.3], w=[vec[2]*0.3],
+            u=[vec[0]], v=[vec[1]], w=[vec[2]],
             colorscale=[[0, color], [1, color]],
-            showscale=False, sizemode='absolute', sizeref=0.3,
+            showscale=False, sizemode='absolute', sizeref=0.25,
             hoverinfo='skip'
         ))
     
     fig.update_layout(
-        title=dict(text=title, font=dict(size=14, color='#1a1a2e')),
+        title=dict(text=title, font=dict(size=16, color='#1a1a2e', family='IBM Plex Sans')),
         scene=dict(
             xaxis=dict(visible=False, range=[-1.5, 1.5]),
             yaxis=dict(visible=False, range=[-1.5, 1.5]),
             zaxis=dict(visible=False, range=[-1.5, 1.5]),
             bgcolor='#ffffff',
-            camera=dict(eye=dict(x=1.5, y=1.5, z=1.3)),
+            camera=dict(
+                eye=dict(x=1.6, y=1.2, z=1.0),
+                up=dict(x=0, y=0, z=1)
+            ),
             aspectmode='cube'
         ),
         paper_bgcolor='#ffffff',
         margin=dict(l=0, r=0, t=40, b=0),
-        height=500
+        height=450,
+        showlegend=False
     )
     
     return fig
@@ -728,32 +771,59 @@ with tab_build:
     # Display circuit with compact visualization
     if st.session_state.gate_history:
         try:
-            # Calculate compact height based on number of qubits
-            height = max(1.5, 0.3 * st.session_state.num_qubits)
-            
-            # Create figure with compact size
-            fig, ax = plt.subplots(figsize=(8, height))
-            fig.patch.set_facecolor('#ffffff')
-            
-            # Draw circuit with compact styling
-            circuit_drawer(
+            # Draw circuit with professional research styling
+            fig = circuit_drawer(
                 st.session_state.circuit, 
                 output='mpl',
-                style={'backgroundcolor': '#ffffff', 'fontsize': 9},
-                ax=ax,
-                fold=-1,  # No folding for cleaner look
-                scale=0.5  # Smaller scale for compactness
+                style={
+                    'backgroundcolor': '#ffffff',
+                    'fontsize': 8,           # Stable font size
+                    'subfontsize': 7,
+                    'linecolor': '#57606a',
+                    'gatetextcolor': '#1a1a2e',
+                    'gatefacecolor': '#f6f8fa',
+                    'barrierfacecolor': '#d0d7de'
+                },
+                fold=-1,
+                scale=0.5  # Standard scale
             )
             
-            # Tight layout to remove extra whitespace
-            plt.tight_layout(pad=0.2)
-            st.pyplot(fig, use_container_width=False)
+            # Save to buffer with high DPI for clarity but fixed display width for consistency
+            buf = io.BytesIO()
+            fig.savefig(buf, format='png', dpi=150, bbox_inches='tight', facecolor='#ffffff')
             plt.close(fig)
+            
+            # Use fixed width to ensure fonts don't scale up/down with qubit count
+            st.image(buf.getvalue(), width=700)
         except Exception as e:
             # Fallback to text representation
             st.code("\n".join(st.session_state.gate_history))
     else:
         st.info("Circuit is empty. Add gates below.")
+    
+    # Live State Preview (Experimental Feature)
+    if st.session_state.gate_history:
+        with st.expander("🔍 Live State Preview", expanded=True):
+            try:
+                sv_live = Statevector.from_instruction(st.session_state.circuit)
+                analyzer_live = QuantumStateAnalyzer()
+                
+                prev_cols = st.columns(min(st.session_state.num_qubits, 4))
+                for i in range(min(st.session_state.num_qubits, 4)):
+                    with prev_cols[i]:
+                        if st.session_state.num_qubits == 1:
+                            rho_i = DensityMatrix(sv_live).data
+                        else:
+                            trace_qubits = [j for j in range(st.session_state.num_qubits) if j != i]
+                            rho_i = partial_trace(sv_live, trace_qubits).data
+                        
+                        b_vec = analyzer_live.density_matrix_to_bloch(rho_i)
+                        fig_live = draw_bloch_sphere(f"Q{i}", b_vec, qubit_idx=i)
+                        # More compact for preview
+                        fig_live.update_layout(height=300, margin=dict(l=0, r=0, t=30, b=0))
+                        st.plotly_chart(fig_live, use_container_width=True, key=f"bloch_live_{i}")
+            except Exception as e:
+                st.error(f"Live preview error: {e}")
     
     st.markdown("---")
     
@@ -896,8 +966,11 @@ with tab_analyze:
                 st.markdown("#### State Vector Visualization")
                 
                 # Bloch spheres for each qubit
-                if st.session_state.num_qubits <= 3:
-                    for i in range(st.session_state.num_qubits):
+                num_display = min(st.session_state.num_qubits, 4)
+                cols = st.columns(min(num_display, 2))
+                
+                for i in range(num_display):
+                    with cols[i % 2]:
                         # Partial trace to get single qubit state
                         if st.session_state.num_qubits == 1:
                             rho_i = dm.data
@@ -906,16 +979,11 @@ with tab_analyze:
                             rho_i = partial_trace(sv, trace_qubits).data
                         
                         bloch_vec = analyzer.density_matrix_to_bloch(rho_i)
-                        fig = draw_bloch_sphere(f"Qubit {i}", bloch_vec)
-                        st.plotly_chart(fig, use_container_width=True)
-                else:
-                    st.warning("Too many qubits for full Bloch sphere display. Showing first 3.")
-                    for i in range(3):
-                        trace_qubits = [j for j in range(st.session_state.num_qubits) if j != i]
-                        rho_i = partial_trace(sv, trace_qubits).data
-                        bloch_vec = analyzer.density_matrix_to_bloch(rho_i)
-                        fig = draw_bloch_sphere(f"Qubit {i}", bloch_vec)
-                        st.plotly_chart(fig, use_container_width=True)
+                        fig = draw_bloch_sphere(f"Qubit {i} State", bloch_vec, qubit_idx=i)
+                        st.plotly_chart(fig, use_container_width=True, key=f"bloch_analyze_{i}")
+                
+                if st.session_state.num_qubits > 4:
+                    st.warning("Showing first 4 qubits. Additional qubits omitted from Bloch display.")
             
             with col2:
                 st.markdown("#### Quantum Metrics")
