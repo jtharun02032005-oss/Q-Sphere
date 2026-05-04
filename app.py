@@ -506,6 +506,15 @@ class QuantumStateAnalyzer:
         if norm > 1.0:
             vec = vec / norm
         return vec
+    
+    @staticmethod
+    def check_entanglement(statevector, threshold=0.01):
+        """Check if qubits are entangled based on concurrence."""
+        if statevector.num_qubits != 2:
+            return False
+        
+        concurrence = QuantumStateAnalyzer.compute_concurrence(statevector)
+        return concurrence > threshold if concurrence is not None else False
 
 class CustomGateBuilder:
     """Build custom quantum gates."""
@@ -643,108 +652,391 @@ def apply_gate(gate_type, params):
 # VISUALIZATION FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════════
 
-def draw_bloch_sphere(title, vec, color='#1f6feb', qubit_idx=0):
-    """Draw Bloch sphere with research-grade styling and clear axis labeling."""
-    u = np.linspace(0, 2 * np.pi, 40)
-    v = np.linspace(0, np.pi, 30)
+def _add_sphere_surface(fig):
+    """Add a clean translucent sphere surface with proper lighting."""
+    u = np.linspace(0, 2 * np.pi, 80)
+    v = np.linspace(0, np.pi, 50)
     x_sphere = np.outer(np.cos(u), np.sin(v))
     y_sphere = np.outer(np.sin(u), np.sin(v))
     z_sphere = np.outer(np.ones_like(u), np.cos(v))
     
-    fig = go.Figure()
-    
-    # Sphere surface
     fig.add_trace(go.Surface(
         x=x_sphere, y=y_sphere, z=z_sphere,
-        colorscale=[[0, '#f8f9fa'], [1, '#f8f9fa']],
+        colorscale=[[0, 'rgba(230, 240, 250, 1)'], [1, 'rgba(210, 225, 245, 1)']],
         showscale=False,
-        opacity=0.15,
+        opacity=0.20,
         hoverinfo='skip',
-        contours=dict(
-            x=dict(show=True, color='#d0d7de', width=1, usecolormap=False),
-            y=dict(show=True, color='#d0d7de', width=1, usecolormap=False),
-            z=dict(show=True, color='#d0d7de', width=1, usecolormap=False)
-        )
+        lighting=dict(
+            ambient=0.85,
+            diffuse=0.5,
+            fresnel=0.15,
+            specular=0.2,
+            roughness=0.6
+        ),
+        lightposition=dict(x=100, y=200, z=300)
+    ))
+
+
+def _add_equator_and_meridians(fig):
+    """Add equator and reference meridian circles like in research papers."""
+    theta = np.linspace(0, 2 * np.pi, 100)
+    
+    # Equator (z=0 circle)
+    fig.add_trace(go.Scatter3d(
+        x=np.cos(theta), y=np.sin(theta), z=np.zeros_like(theta),
+        mode='lines',
+        line=dict(color='rgba(120, 120, 120, 0.5)', width=2, dash='dash'),
+        hoverinfo='skip',
+        showlegend=False
     ))
     
-    # Axes
-    axis_length = 1.3
+    # Meridian in xz-plane
+    fig.add_trace(go.Scatter3d(
+        x=np.cos(theta), y=np.zeros_like(theta), z=np.sin(theta),
+        mode='lines',
+        line=dict(color='rgba(120, 120, 120, 0.3)', width=1, dash='dot'),
+        hoverinfo='skip',
+        showlegend=False
+    ))
+    
+    # Meridian in yz-plane
+    fig.add_trace(go.Scatter3d(
+        x=np.zeros_like(theta), y=np.cos(theta), z=np.sin(theta),
+        mode='lines',
+        line=dict(color='rgba(120, 120, 120, 0.3)', width=1, dash='dot'),
+        hoverinfo='skip',
+        showlegend=False
+    ))
+
+
+def _add_axes_and_labels(fig, axis_length=1.35):
+    """Add coordinate axes with proper arrow tips and labels."""
     # X-axis (Red)
     fig.add_trace(go.Scatter3d(
         x=[-axis_length, axis_length], y=[0, 0], z=[0, 0],
-        mode='lines', line=dict(color='#f85149', width=4),
-        hoverinfo='skip', name='X-axis'
+        mode='lines', line=dict(color='#e74c3c', width=4),
+        hoverinfo='skip', showlegend=False
     ))
     # Y-axis (Green)
     fig.add_trace(go.Scatter3d(
         x=[0, 0], y=[-axis_length, axis_length], z=[0, 0],
-        mode='lines', line=dict(color='#3fb950', width=4),
-        hoverinfo='skip', name='Y-axis'
+        mode='lines', line=dict(color='#27ae60', width=4),
+        hoverinfo='skip', showlegend=False
     ))
     # Z-axis (Blue)
     fig.add_trace(go.Scatter3d(
         x=[0, 0], y=[0, 0], z=[-axis_length, axis_length],
-        mode='lines', line=dict(color='#58a6ff', width=5),
-        hoverinfo='skip', name='Z-axis'
+        mode='lines', line=dict(color='#3498db', width=4),
+        hoverinfo='skip', showlegend=False
     ))
     
-    # Axis Labels
+    # Axis arrow tips
+    cone_size = 0.10
+    # +X arrow
+    fig.add_trace(go.Cone(
+        x=[axis_length], y=[0], z=[0],
+        u=[cone_size], v=[0], w=[0],
+        colorscale=[[0, '#e74c3c'], [1, '#e74c3c']],
+        showscale=False, sizemode='absolute', sizeref=cone_size,
+        hoverinfo='skip', anchor='tail'
+    ))
+    # +Y arrow
+    fig.add_trace(go.Cone(
+        x=[0], y=[axis_length], z=[0],
+        u=[0], v=[cone_size], w=[0],
+        colorscale=[[0, '#27ae60'], [1, '#27ae60']],
+        showscale=False, sizemode='absolute', sizeref=cone_size,
+        hoverinfo='skip', anchor='tail'
+    ))
+    # +Z arrow
+    fig.add_trace(go.Cone(
+        x=[0], y=[0], z=[axis_length],
+        u=[0], v=[0], w=[cone_size],
+        colorscale=[[0, '#3498db'], [1, '#3498db']],
+        showscale=False, sizemode='absolute', sizeref=cone_size,
+        hoverinfo='skip', anchor='tail'
+    ))
+    
+    # Axis text labels
     fig.add_trace(go.Scatter3d(
-        x=[axis_length+0.1, 0, 0],
-        y=[0, axis_length+0.1, 0],
-        z=[0, 0, axis_length+0.1],
+        x=[axis_length + 0.20, 0, 0],
+        y=[0, axis_length + 0.20, 0],
+        z=[0, 0, axis_length + 0.20],
         mode='text',
-        text=['X', 'Y', 'Z'],
-        textfont=dict(color=['#f85149', '#3fb950', '#58a6ff'], size=14, family='IBM Plex Mono'),
-        hoverinfo='skip'
+        text=['<b>x</b>', '<b>y</b>', '<b>z</b>'],
+        textfont=dict(color=['#e74c3c', '#27ae60', '#3498db'], size=18, family='Times New Roman'),
+        hoverinfo='skip', showlegend=False
     ))
+
+
+def _bloch_to_spherical(vec):
+    """Convert Bloch vector (x,y,z) to spherical (r, theta, phi) coordinates."""
+    x, y, z = float(vec[0]), float(vec[1]), float(vec[2])
+    r = np.sqrt(x**2 + y**2 + z**2)
+    if r < 1e-10:
+        return 0.0, 0.0, 0.0
+    theta = np.arccos(np.clip(z / r, -1.0, 1.0))  # polar angle [0, π]
+    phi = np.arctan2(y, x)                         # azimuthal angle [-π, π]
+    return r, theta, phi
+
+
+def _add_state_arrow(fig, vec, color, label, hover_label=None):
+    """Add a quantum state vector arrow from origin to vec.
     
-    # Pole Labels
-    fig.add_trace(go.Scatter3d(
-        x=[0, 0], y=[0, 0], z=[1.1, -1.1],
-        mode='text',
-        text=['|0⟩', '|1⟩'],
-        textfont=dict(color='#000000', size=16, family='IBM Plex Mono'),
-        hoverinfo='skip'
-    ))
-    
-    # State vector
+    Builds the arrow from a thick line shaft + a properly oriented cone tip
+    so the arrow is clearly visible regardless of vector direction.
+    """
+    vec = np.array(vec, dtype=float)
     vec_norm = np.linalg.norm(vec)
-    if vec_norm > 1e-6:
-        # Line from origin
+    if vec_norm < 1e-6:
+        return  # No arrow for zero vectors (handled separately)
+    
+    # Clip to unit sphere if numerical noise pushed it outside
+    if vec_norm > 1.0:
+        vec = vec / vec_norm
+        vec_norm = 1.0
+    
+    direction = vec / vec_norm  # unit vector along arrow
+    
+    # Shaft: from origin to ~82% of vector length, leaving room for the arrow head
+    shaft_end = vec * 0.82
+    
+    fig.add_trace(go.Scatter3d(
+        x=[0, shaft_end[0]],
+        y=[0, shaft_end[1]],
+        z=[0, shaft_end[2]],
+        mode='lines',
+        line=dict(color=color, width=8),
+        hoverinfo='text',
+        hovertext=hover_label or label,
+        showlegend=False
+    ))
+    
+    # Arrow head cone — anchored at its tail and pointing in the +direction.
+    # Place the cone's tail near the end of the shaft so the tip lands at vec.
+    head_length = 0.20
+    head_base = vec - direction * head_length
+    
+    fig.add_trace(go.Cone(
+        x=[head_base[0]],
+        y=[head_base[1]],
+        z=[head_base[2]],
+        u=[direction[0]],
+        v=[direction[1]],
+        w=[direction[2]],
+        colorscale=[[0, color], [1, color]],
+        showscale=False,
+        sizemode='absolute',
+        sizeref=head_length,
+        anchor='tail',
+        hoverinfo='skip',
+        showlegend=False
+    ))
+    
+    # Endpoint marker (small dot at the tip)
+    fig.add_trace(go.Scatter3d(
+        x=[vec[0]], y=[vec[1]], z=[vec[2]],
+        mode='markers',
+        marker=dict(size=5, color=color, symbol='circle',
+                    line=dict(width=1, color='white')),
+        hoverinfo='text',
+        hovertext=hover_label or label,
+        showlegend=False
+    ))
+
+
+def _format_coords_subtitle(vec, label_prefix=""):
+    """Format quantum state coordinates for compact display under the title."""
+    r, theta, phi = _bloch_to_spherical(vec)
+    theta_deg = np.degrees(theta)
+    phi_deg = np.degrees(phi)
+    
+    # |ψ⟩ = cos(θ/2)|0⟩ + e^(iφ) sin(θ/2)|1⟩
+    alpha = np.cos(theta / 2)
+    beta = np.sin(theta / 2)
+    
+    return (
+        f"{label_prefix}Bloch: ({vec[0]:+.3f}, {vec[1]:+.3f}, {vec[2]:+.3f})  |  "
+        f"r={r:.3f}, θ={theta_deg:.1f}°, φ={phi_deg:.1f}°  |  "
+        f"|ψ⟩ ≈ {alpha:.3f}|0⟩ + e^(i{phi_deg:.0f}°)·{beta:.3f}|1⟩"
+    )
+
+
+def draw_bloch_sphere(title, vec, color='#2980b9', qubit_idx=0):
+    """Quantum-correct Bloch sphere with proper arrow, axes, and coordinate display.
+    
+    Convention: |ψ⟩ = cos(θ/2)|0⟩ + e^(iφ) sin(θ/2)|1⟩
+    Bloch vector: r = (sin θ cos φ, sin θ sin φ, cos θ)
+      +z: |0⟩    -z: |1⟩
+      +x: |+⟩    -x: |−⟩
+      +y: |+i⟩   -y: |−i⟩
+    """
+    vec = np.array(vec, dtype=float)
+    
+    fig = go.Figure()
+    
+    _add_sphere_surface(fig)
+    _add_equator_and_meridians(fig)
+    _add_axes_and_labels(fig)
+    
+    # Cardinal basis-state labels (single qubit)
+    fig.add_trace(go.Scatter3d(
+        x=[0, 0, 1.20, -1.20, 0, 0],
+        y=[0, 0, 0, 0, 1.20, -1.20],
+        z=[1.20, -1.20, 0, 0, 0, 0],
+        mode='text',
+        text=['|0⟩', '|1⟩', '|+⟩', '|−⟩', '|+i⟩', '|−i⟩'],
+        textfont=dict(color='#000000', size=13, family='Times New Roman'),
+        hoverinfo='skip', showlegend=False
+    ))
+    
+    # State vector arrow with detailed hover
+    r, theta, phi = _bloch_to_spherical(vec)
+    hover_text = (
+        f"<b>Qubit {qubit_idx}</b><br>"
+        f"x = {vec[0]:+.4f}<br>"
+        f"y = {vec[1]:+.4f}<br>"
+        f"z = {vec[2]:+.4f}<br>"
+        f"r = {r:.4f}<br>"
+        f"θ = {np.degrees(theta):.2f}°<br>"
+        f"φ = {np.degrees(phi):.2f}°"
+    )
+    _add_state_arrow(fig, vec, color, f"Q{qubit_idx}", hover_text)
+    
+    # If the state is fully mixed (vec ≈ 0), show a marker at origin
+    if np.linalg.norm(vec) < 1e-6:
         fig.add_trace(go.Scatter3d(
-            x=[0, vec[0]], y=[0, vec[1]], z=[0, vec[2]],
-            mode='lines', line=dict(color=color, width=10),
+            x=[0], y=[0], z=[0],
+            mode='markers',
+            marker=dict(size=10, color=color, symbol='diamond',
+                       line=dict(width=2, color='white')),
             hoverinfo='text',
-            hovertext=f'Qubit {qubit_idx}<br>x:{vec[0]:.3f}<br>y:{vec[1]:.3f}<br>z:{vec[2]:.3f}<br>Purity:{vec_norm:.3f}',
-            name='State Vector'
+            hovertext='Maximally mixed state (ρ = I/2)',
+            showlegend=False
         ))
-        
-        # Arrow tip
-        fig.add_trace(go.Cone(
-            x=[vec[0]], y=[vec[1]], z=[vec[2]],
-            u=[vec[0]], v=[vec[1]], w=[vec[2]],
-            colorscale=[[0, color], [1, color]],
-            showscale=False, sizemode='absolute', sizeref=0.25,
-            hoverinfo='skip'
-        ))
+    
+    coord_text = _format_coords_subtitle(vec)
     
     fig.update_layout(
-        title=dict(text=title, font=dict(size=16, color='#000000', family='IBM Plex Sans')),
+        title=dict(
+            text=f"{title}<br><sub style='font-size:10px;color:#444'>{coord_text}</sub>",
+            font=dict(size=15, color='#000000', family='IBM Plex Sans'),
+            x=0.5, xanchor='center'
+        ),
         scene=dict(
-            xaxis=dict(visible=False, range=[-1.5, 1.5]),
-            yaxis=dict(visible=False, range=[-1.5, 1.5]),
-            zaxis=dict(visible=False, range=[-1.5, 1.5]),
+            xaxis=dict(visible=False, range=[-1.6, 1.6]),
+            yaxis=dict(visible=False, range=[-1.6, 1.6]),
+            zaxis=dict(visible=False, range=[-1.6, 1.6]),
             bgcolor='#ffffff',
             camera=dict(
-                eye=dict(x=1.6, y=1.2, z=1.0),
+                eye=dict(x=1.5, y=1.5, z=1.1),
                 up=dict(x=0, y=0, z=1)
             ),
             aspectmode='cube'
         ),
         paper_bgcolor='#ffffff',
-        margin=dict(l=0, r=0, t=40, b=0),
-        height=450,
+        margin=dict(l=0, r=0, t=70, b=0),
+        height=480,
+        showlegend=False
+    )
+    
+    return fig
+
+
+def draw_entangled_bloch_sphere(title, vec1, vec2, qubit_idx1=0, qubit_idx2=1):
+    """Quantum-correct combined Bloch sphere for an entangled 2-qubit system.
+    
+    Shows the *reduced* single-qubit Bloch vectors of each qubit, obtained
+    from partial trace of the joint density matrix. For a maximally
+    entangled state (e.g. Bell state), both reduced vectors are at the
+    origin (ρ_i = I/2, purity = 1/2).
+    """
+    vec1 = np.array(vec1, dtype=float)
+    vec2 = np.array(vec2, dtype=float)
+    
+    fig = go.Figure()
+    
+    _add_sphere_surface(fig)
+    _add_equator_and_meridians(fig)
+    _add_axes_and_labels(fig)
+    
+    # Two-qubit basis-state labels at poles
+    fig.add_trace(go.Scatter3d(
+        x=[-0.22, 0.22, -0.22, 0.22],
+        y=[0, 0, 0, 0],
+        z=[1.22, 1.22, -1.22, -1.22],
+        mode='text',
+        text=['|00⟩', '|01⟩', '|10⟩', '|11⟩'],
+        textfont=dict(color='#000000', size=13, family='Times New Roman'),
+        hoverinfo='skip', showlegend=False
+    ))
+    
+    color1 = '#2980b9'  # Q0 — blue
+    color2 = '#c0392b'  # Q1 — red
+    
+    r1, theta1, phi1 = _bloch_to_spherical(vec1)
+    r2, theta2, phi2 = _bloch_to_spherical(vec2)
+    
+    hover1 = (
+        f"<b>Qubit {qubit_idx1}</b> (reduced state)<br>"
+        f"x = {vec1[0]:+.4f}<br>"
+        f"y = {vec1[1]:+.4f}<br>"
+        f"z = {vec1[2]:+.4f}<br>"
+        f"|r| = {r1:.4f}<br>"
+        f"θ = {np.degrees(theta1):.2f}°, φ = {np.degrees(phi1):.2f}°"
+    )
+    hover2 = (
+        f"<b>Qubit {qubit_idx2}</b> (reduced state)<br>"
+        f"x = {vec2[0]:+.4f}<br>"
+        f"y = {vec2[1]:+.4f}<br>"
+        f"z = {vec2[2]:+.4f}<br>"
+        f"|r| = {r2:.4f}<br>"
+        f"θ = {np.degrees(theta2):.2f}°, φ = {np.degrees(phi2):.2f}°"
+    )
+    
+    _add_state_arrow(fig, vec1, color1, f"Q{qubit_idx1}", hover1)
+    _add_state_arrow(fig, vec2, color2, f"Q{qubit_idx2}", hover2)
+    
+    # Maximally entangled (both reduced vectors at origin) — show a single
+    # purple marker explaining what the user is seeing.
+    if r1 < 0.05 and r2 < 0.05:
+        fig.add_trace(go.Scatter3d(
+            x=[0], y=[0], z=[0],
+            mode='markers',
+            marker=dict(size=14, color='#8e44ad', symbol='diamond',
+                       line=dict(width=2, color='white')),
+            hoverinfo='text',
+            hovertext=('<b>Maximally Entangled</b><br>'
+                       'Both reduced states are I/2<br>'
+                       '(Bloch vectors at origin)'),
+            showlegend=False
+        ))
+    
+    coord_text = (
+        f"Q{qubit_idx1}: ({vec1[0]:+.3f}, {vec1[1]:+.3f}, {vec1[2]:+.3f}) |r|={r1:.3f}  ║  "
+        f"Q{qubit_idx2}: ({vec2[0]:+.3f}, {vec2[1]:+.3f}, {vec2[2]:+.3f}) |r|={r2:.3f}"
+    )
+    
+    fig.update_layout(
+        title=dict(
+            text=f"{title}<br><sub style='font-size:10px;color:#444'>{coord_text}</sub>",
+            font=dict(size=15, color='#000000', family='IBM Plex Sans'),
+            x=0.5, xanchor='center'
+        ),
+        scene=dict(
+            xaxis=dict(visible=False, range=[-1.6, 1.6]),
+            yaxis=dict(visible=False, range=[-1.6, 1.6]),
+            zaxis=dict(visible=False, range=[-1.6, 1.6]),
+            bgcolor='#ffffff',
+            camera=dict(
+                eye=dict(x=1.5, y=1.5, z=1.1),
+                up=dict(x=0, y=0, z=1)
+            ),
+            aspectmode='cube'
+        ),
+        paper_bgcolor='#ffffff',
+        margin=dict(l=0, r=0, t=70, b=0),
+        height=520,
         showlegend=False
     )
     
@@ -952,20 +1244,55 @@ with tab_build:
                 sv_live = Statevector.from_instruction(st.session_state.circuit)
                 analyzer_live = QuantumStateAnalyzer()
                 
-                prev_cols = st.columns(min(st.session_state.num_qubits, 4))
-                for i in range(min(st.session_state.num_qubits, 4)):
-                    with prev_cols[i]:
-                        if st.session_state.num_qubits == 1:
-                            rho_i = DensityMatrix(sv_live).data
-                        else:
-                            trace_qubits = [j for j in range(st.session_state.num_qubits) if j != i]
-                            rho_i = partial_trace(sv_live, trace_qubits).data
+                # Check for entanglement in 2-qubit systems
+                if st.session_state.num_qubits == 2:
+                    is_entangled = analyzer_live.check_entanglement(sv_live)
+                    
+                    if is_entangled:
+                        # Show combined Bloch sphere for entangled qubits
+                        st.info("🔗 Qubits are ENTANGLED - Showing combined Bloch sphere representation")
                         
-                        b_vec = analyzer_live.density_matrix_to_bloch(rho_i)
-                        fig_live = draw_bloch_sphere(f"Q{i}", b_vec, qubit_idx=i)
-                        # More compact for preview
-                        fig_live.update_layout(height=300, margin=dict(l=0, r=0, t=30, b=0))
-                        st.plotly_chart(fig_live, use_container_width=True, key=f"bloch_live_{i}")
+                        # Get reduced density matrices for both qubits
+                        rho_0 = partial_trace(sv_live, [1]).data
+                        rho_1 = partial_trace(sv_live, [0]).data
+                        
+                        b_vec_0 = analyzer_live.density_matrix_to_bloch(rho_0)
+                        b_vec_1 = analyzer_live.density_matrix_to_bloch(rho_1)
+                        
+                        fig_combined = draw_entangled_bloch_sphere(
+                            "Entangled State (Q0 & Q1)", 
+                            b_vec_0, b_vec_1, 
+                            qubit_idx1=0, qubit_idx2=1
+                        )
+                        fig_combined.update_layout(height=500, margin=dict(l=0, r=0, t=40, b=0))
+                        st.plotly_chart(fig_combined, use_container_width=True, key="bloch_entangled")
+                    else:
+                        # Show separate Bloch spheres for non-entangled qubits
+                        prev_cols = st.columns(2)
+                        for i in range(2):
+                            with prev_cols[i]:
+                                trace_qubits = [j for j in range(st.session_state.num_qubits) if j != i]
+                                rho_i = partial_trace(sv_live, trace_qubits).data
+                                
+                                b_vec = analyzer_live.density_matrix_to_bloch(rho_i)
+                                fig_live = draw_bloch_sphere(f"Q{i}", b_vec, qubit_idx=i)
+                                fig_live.update_layout(height=300, margin=dict(l=0, r=0, t=30, b=0))
+                                st.plotly_chart(fig_live, use_container_width=True, key=f"bloch_live_{i}")
+                else:
+                    # For single qubit or >2 qubits, show individual Bloch spheres
+                    prev_cols = st.columns(min(st.session_state.num_qubits, 4))
+                    for i in range(min(st.session_state.num_qubits, 4)):
+                        with prev_cols[i]:
+                            if st.session_state.num_qubits == 1:
+                                rho_i = DensityMatrix(sv_live).data
+                            else:
+                                trace_qubits = [j for j in range(st.session_state.num_qubits) if j != i]
+                                rho_i = partial_trace(sv_live, trace_qubits).data
+                            
+                            b_vec = analyzer_live.density_matrix_to_bloch(rho_i)
+                            fig_live = draw_bloch_sphere(f"Q{i}", b_vec, qubit_idx=i)
+                            fig_live.update_layout(height=300, margin=dict(l=0, r=0, t=30, b=0))
+                            st.plotly_chart(fig_live, use_container_width=True, key=f"bloch_live_{i}")
             except Exception as e:
                 st.error(f"Live preview error: {e}")
     
@@ -1030,9 +1357,36 @@ with tab_build:
         
         rot_qubit = st.selectbox("Target Qubit", range(st.session_state.num_qubits), key="rot_qubit")
         rot_axis = st.selectbox("Axis", ["X", "Y", "Z"])
-        rot_angle = st.number_input("Angle (radians)", -2*np.pi, 2*np.pi, 0.0, 0.1)
         
-        if st.button(f"Apply R{rot_axis}({rot_angle:.2f})", use_container_width=True, help=f"Rotate qubit by {rot_angle:.2f} radians around {rot_axis}-axis"):
+        # Changed: Now user inputs multiplier for π
+        rot_multiplier = st.number_input("Angle (× π)", -4.0, 4.0, 0.0, 0.25, format="%.2f", 
+                                         help="Enter multiplier for π (e.g., 0.5 for π/2, 1 for π, 2 for 2π)")
+        
+        # Calculate actual angle
+        rot_angle = rot_multiplier * np.pi
+        
+        # Display the actual angle
+        if rot_multiplier == 0:
+            angle_display = "0"
+        elif rot_multiplier == 1:
+            angle_display = "π"
+        elif rot_multiplier == -1:
+            angle_display = "-π"
+        elif rot_multiplier == 0.5:
+            angle_display = "π/2"
+        elif rot_multiplier == -0.5:
+            angle_display = "-π/2"
+        elif rot_multiplier == 0.25:
+            angle_display = "π/4"
+        elif rot_multiplier == -0.25:
+            angle_display = "-π/4"
+        else:
+            angle_display = f"{rot_multiplier:.2f}π"
+        
+        st.caption(f"Angle = {angle_display} ≈ {rot_angle:.3f} rad")
+        
+        if st.button(f"Apply R{rot_axis}({angle_display})", use_container_width=True, 
+                     help=f"Rotate qubit by {angle_display} radians around {rot_axis}-axis"):
             apply_gate(f'R{rot_axis}', {'qubit': rot_qubit, 'angle': rot_angle})
             st.rerun()
         st.markdown("<p class='button-caption'>Custom rotation</p>", unsafe_allow_html=True)
@@ -1040,17 +1394,17 @@ with tab_build:
         st.markdown("**Quick Angles**")
         quick_cols = st.columns(3)
         with quick_cols[0]:
-            if st.button("π/4", key="pi4", help="Quick rotation: 45 degrees"):
+            if st.button("π/4", key="pi4", help="Quick rotation: π/4 (45 degrees)"):
                 apply_gate(f'R{rot_axis}', {'qubit': rot_qubit, 'angle': np.pi/4})
                 st.rerun()
             st.markdown("<p class='button-caption'>45°</p>", unsafe_allow_html=True)
         with quick_cols[1]:
-            if st.button("π/2", key="pi2", help="Quick rotation: 90 degrees"):
+            if st.button("π/2", key="pi2", help="Quick rotation: π/2 (90 degrees)"):
                 apply_gate(f'R{rot_axis}', {'qubit': rot_qubit, 'angle': np.pi/2})
                 st.rerun()
             st.markdown("<p class='button-caption'>90°</p>", unsafe_allow_html=True)
         with quick_cols[2]:
-            if st.button("π", key="pi", help="Quick rotation: 180 degrees"):
+            if st.button("π", key="pi", help="Quick rotation: π (180 degrees)"):
                 apply_gate(f'R{rot_axis}', {'qubit': rot_qubit, 'angle': np.pi})
                 st.rerun()
             st.markdown("<p class='button-caption'>180°</p>", unsafe_allow_html=True)
@@ -1126,25 +1480,57 @@ with tab_analyze:
             with col1:
                 st.markdown("#### State Vector Visualization")
                 
-                # Bloch spheres for each qubit
-                num_display = min(st.session_state.num_qubits, 4)
-                cols = st.columns(min(num_display, 2))
-                
-                for i in range(num_display):
-                    with cols[i % 2]:
-                        # Partial trace to get single qubit state
-                        if st.session_state.num_qubits == 1:
-                            rho_i = dm.data
-                        else:
-                            trace_qubits = [j for j in range(st.session_state.num_qubits) if j != i]
-                            rho_i = partial_trace(sv, trace_qubits).data
+                # Check for entanglement in 2-qubit systems
+                if st.session_state.num_qubits == 2:
+                    is_entangled = analyzer.check_entanglement(sv)
+                    
+                    if is_entangled:
+                        st.info("🔗 System is ENTANGLED - Single combined sphere")
                         
-                        bloch_vec = analyzer.density_matrix_to_bloch(rho_i)
-                        fig = draw_bloch_sphere(f"Qubit {i} State", bloch_vec, qubit_idx=i)
-                        st.plotly_chart(fig, use_container_width=True, key=f"bloch_analyze_{i}")
-                
-                if st.session_state.num_qubits > 4:
-                    st.warning("Showing first 4 qubits. Additional qubits omitted from Bloch display.")
+                        # Get reduced density matrices for both qubits
+                        rho_0 = partial_trace(sv, [1]).data
+                        rho_1 = partial_trace(sv, [0]).data
+                        
+                        b_vec_0 = analyzer.density_matrix_to_bloch(rho_0)
+                        b_vec_1 = analyzer.density_matrix_to_bloch(rho_1)
+                        
+                        fig_combined = draw_entangled_bloch_sphere(
+                            "Entangled Qubits (Q0 & Q1)", 
+                            b_vec_0, b_vec_1, 
+                            qubit_idx1=0, qubit_idx2=1
+                        )
+                        st.plotly_chart(fig_combined, use_container_width=True, key="bloch_analyze_entangled")
+                    else:
+                        # Show separate Bloch spheres
+                        cols = st.columns(2)
+                        for i in range(2):
+                            with cols[i]:
+                                trace_qubits = [j for j in range(st.session_state.num_qubits) if j != i]
+                                rho_i = partial_trace(sv, trace_qubits).data
+                                
+                                bloch_vec = analyzer.density_matrix_to_bloch(rho_i)
+                                fig = draw_bloch_sphere(f"Qubit {i} State", bloch_vec, qubit_idx=i)
+                                st.plotly_chart(fig, use_container_width=True, key=f"bloch_analyze_{i}")
+                else:
+                    # For single qubit or >2 qubits
+                    num_display = min(st.session_state.num_qubits, 4)
+                    cols = st.columns(min(num_display, 2))
+                    
+                    for i in range(num_display):
+                        with cols[i % 2]:
+                            # Partial trace to get single qubit state
+                            if st.session_state.num_qubits == 1:
+                                rho_i = dm.data
+                            else:
+                                trace_qubits = [j for j in range(st.session_state.num_qubits) if j != i]
+                                rho_i = partial_trace(sv, trace_qubits).data
+                            
+                            bloch_vec = analyzer.density_matrix_to_bloch(rho_i)
+                            fig = draw_bloch_sphere(f"Qubit {i} State", bloch_vec, qubit_idx=i)
+                            st.plotly_chart(fig, use_container_width=True, key=f"bloch_analyze_{i}")
+                    
+                    if st.session_state.num_qubits > 4:
+                        st.warning("Showing first 4 qubits. Additional qubits omitted from Bloch display.")
             
             with col2:
                 st.markdown("#### Quantum Metrics")
